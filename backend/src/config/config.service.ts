@@ -85,6 +85,8 @@ export class AppConfigService {
         provider !== 'stub' &&
         typeof apiKey === 'string' &&
         apiKey.length > 0,
+      dailySessionLimit: this.config.get('AI_DAILY_SESSION_LIMIT', { infer: true }),
+      dailyIpLimit: this.config.get('AI_DAILY_IP_LIMIT', { infer: true }),
     };
   }
 

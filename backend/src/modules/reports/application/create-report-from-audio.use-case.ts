@@ -33,6 +33,8 @@ export interface CreateReportFromAudioCommand {
   sessionId?: string;
   customFartName?: string;
   tonePreset?: string;
+  /** Best-effort client IP for AI quota accounting (not persisted, not logged). */
+  ipAddress?: string;
 }
 
 /**
@@ -87,6 +89,12 @@ export class CreateReportFromAudioUseCase {
       ...(command.customFartName !== undefined ? { customFartName: command.customFartName } : {}),
       ...(command.tonePreset !== undefined ? { tonePreset: command.tonePreset } : {}),
       ...(upload.durationSeconds !== undefined ? { durationSeconds: upload.durationSeconds } : {}),
+      ...(command.sessionId !== undefined
+        ? { sessionId: command.sessionId }
+        : upload.sessionId !== undefined
+          ? { sessionId: upload.sessionId }
+          : {}),
+      ...(command.ipAddress !== undefined ? { ipAddress: command.ipAddress } : {}),
       audioMetadata: {
         mimeType: upload.mimeType,
         sizeBytes: upload.sizeBytes,

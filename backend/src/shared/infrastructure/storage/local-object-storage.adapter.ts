@@ -20,12 +20,12 @@ export class LocalObjectStorageAdapter implements ObjectStoragePort {
   async getObject(key: string): Promise<{ body: Buffer; contentType?: string }> {
     const fullPath = resolveStorageKey(this.config.storage.localPath, key);
     const body = await readFile(fullPath);
-    const contentType = key.endsWith('.html')
-      ? 'text/html; charset=utf-8'
-      : key.endsWith('.json')
-        ? 'application/json; charset=utf-8'
-        : undefined;
-    return { body, contentType };
+    let contentType: string | undefined;
+    if (key.endsWith('.html')) contentType = 'text/html; charset=utf-8';
+    else if (key.endsWith('.json')) contentType = 'application/json; charset=utf-8';
+    else if (key.endsWith('.pdf')) contentType = 'application/pdf';
+    if (contentType !== undefined) return { body, contentType };
+    return { body };
   }
 
   async deleteObject(key: string): Promise<void> {

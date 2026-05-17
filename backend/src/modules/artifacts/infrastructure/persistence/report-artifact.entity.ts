@@ -23,6 +23,9 @@ export class ReportArtifactEntity {
   @Column({ name: 'style_variant', length: 64, nullable: true })
   styleVariant?: string;
 
+  @Column({ name: 'theme_code', length: 64, nullable: true })
+  themeCode?: string;
+
   @Column({ name: 'failure_reason', type: 'text', nullable: true })
   failureReason?: string;
 

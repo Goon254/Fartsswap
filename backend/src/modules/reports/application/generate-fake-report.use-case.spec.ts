@@ -64,16 +64,18 @@ describe('GenerateFakeReportUseCase', () => {
       }),
     );
 
-    // Orchestrator received a normalised request without any session/cookie data.
+    // Orchestrator received a normalised request. Session id is forwarded
+    // (used for quota accounting), but only the seed + source-shape inputs
+    // ever reach the prompt builder.
     const aiCall = orchestrator.lastRequest();
     expect(aiCall).toEqual(
       expect.objectContaining({
         source: ReportSource.FAKE,
         customFartName: 'Thunder Bean',
         tonePreset: 'dramatic',
+        sessionId: 'session-1',
       }),
     );
-    expect(aiCall).not.toHaveProperty('sessionId');
 
     expect(trackEvent.trackBestEffort).toHaveBeenCalledWith(
       expect.objectContaining({

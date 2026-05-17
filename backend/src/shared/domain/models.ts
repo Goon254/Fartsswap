@@ -70,6 +70,8 @@ export interface ReportArtifact {
   storageKey?: string;
   mimeType?: string;
   styleVariant?: string;
+  /** Theme code (e.g. 'default', 'clinical_gold'). Populated for REPORT_PDF artifacts. */
+  themeCode?: string;
   failureReason?: string;
   createdAt: IsoDateTime;
   updatedAt: IsoDateTime;

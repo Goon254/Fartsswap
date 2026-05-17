@@ -27,6 +27,16 @@ contract with Zod validation, brand-safety + content-sanitisation pass, server-c
 error, disallowed content), `ai.report_*` analytics events without prompts or raw
 responses.
 
+**Phase 7 (PDF report artifacts + AI usage caps):** programmatic PDF "diagnostic
+dossier" via `pdfkit` (no headless browser), theme registry (free `default`
++ premium `clinical_gold` / `courtroom` / `space_agency`), new
+`POST /api/v1/reports/:reportId/artifacts/pdf` endpoint with content-level
+deduplication per `(reportId, themeCode)`, Redis-backed daily AI usage caps
+per session and per IP with in-process fallback, deterministic fallback when a
+quota is hit (`reason=quota_exceeded:<scope>`), new Prometheus counters
+(`ai_reports_attempted_total`, `ai_reports_quota_exceeded_total`,
+`pdf_artifacts_generated_total`, `pdf_artifact_generation_seconds`).
+
 ### AI report orchestrator
 
 All report-creation endpoints (`POST /api/v1/reports/fake`, `POST /api/v1/reports/from-audio`)
@@ -327,6 +337,75 @@ CI runs (see `.github/workflows/backend-ci.yml`):
 - `audit`: `npm audit --omit=dev --audit-level=high`.
 - `e2e-tests`: real Postgres service container, runs migrations, executes the e2e suite.
 - `image-scan`: builds the production image, scans with Trivy (fails on HIGH/CRITICAL, uploads SARIF to GitHub code scanning), generates a CycloneDX SBOM artifact.
+
+### PDF diagnostic dossier (Phase 7)
+
+`POST /api/v1/reports/:reportId/artifacts/pdf` generates a single-page PDF
+dossier for an existing report, using the same session-ownership and rate-limit
+rules as the share card.
+
+Body:
+```json
+{ "themeCode": "clinical_gold" }
+```
+
+| themeCode | Tier | Notes |
+|---|---|---|
+| `default` | free | Standard navy + slate, used when `themeCode` is missing or unrecognised |
+| `clinical_gold` | premium* | Gold accents on near-black, faux Bureau seal |
+| `courtroom` | premium* | Deep red + parchment, period-piece feel |
+| `space_agency` | premium* | Cyan on slate, "national agency briefing" feel |
+
+*Themes are tagged but **not yet entitlement-gated**. Selecting any theme is
+free in this phase; payment enforcement will hook into the same field in a
+later phase without changing the API.
+
+Behaviour:
+- Renders via `pdfkit` programmatically (no browser dependency).
+- Stores the resulting PDF under `artifacts/report_pdf/<reportId>/<artifactId>.pdf`.
+- Returns the artifact DTO with `type: report_pdf`, `themeCode`, `mimeType:
+  application/pdf`, and a `contentUrl` pointing at `/api/v1/artifacts/:id/content`.
+- Content-level dedup: repeat calls for the same `(reportId, themeCode)`
+  return the existing READY artifact without re-rendering. Combined with the
+  controller-level `@Idempotent` decorator this gives two layers of dedup
+  (header-keyed for retries + content-keyed for repeats).
+- Unknown `themeCode` values are coerced to `default` — the endpoint does not
+  400 on theme alone.
+
+Analytics events: `pdf.artifact_requested`, `pdf.artifact_generated`,
+`pdf.artifact_failed` (via outbox).
+
+Metrics: `pdf_artifacts_generated_total{themeCode,outcome}` +
+`pdf_artifact_generation_seconds{themeCode}`.
+
+### AI usage caps (Phase 7)
+
+Both report flows now consume from a daily AI usage quota before reaching the
+provider. Counters are Redis-backed (`ai:quota:<scope>:<id>:<YYYY-MM-DD>`,
+TTL'd to end-of-day UTC) with a per-process in-memory fallback when Redis is
+unavailable.
+
+| Env | Default | Effect |
+|---|---|---|
+| `AI_DAILY_SESSION_LIMIT` | `50` | Max AI report attempts per anonymous session per UTC day. `0` disables the session cap. |
+| `AI_DAILY_IP_LIMIT` | `200` | Max attempts per client IP per UTC day. `0` disables the IP cap. |
+
+**Every attempt counts**, including deterministic fallbacks, so a flood of bad
+input can't burn the budget. When either cap is exceeded:
+- The provider is **not** called.
+- The deterministic fallback fields are returned with HTTP 200.
+- `AiReportResult.meta.fallbackReason` is `quota_exceeded:session` or
+  `quota_exceeded:ip`.
+- The `ai.report_failed` analytics event carries the same `reason`.
+- The Prometheus counter `ai_reports_quota_exceeded_total{scope}` is
+  incremented.
+
+API contracts and HTTP status codes are unchanged — clients only see a flag in
+the analytics layer; the user experience degrades gracefully.
+
+Client IPs and session IDs are NEVER placed in metric labels (high cardinality,
+PII). They appear only in the (private) Redis keys and in opaque inputs to the
+quota adapter.
 
 ### Architectural Decision Records
 

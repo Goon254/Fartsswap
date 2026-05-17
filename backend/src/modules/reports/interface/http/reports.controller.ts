@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res } fr
 import { ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppConfigService } from '../../../../config/config.service';
+import { resolveClientIp } from '../../../../shared/interface/http/client-ip';
 import { Idempotent } from '../../../../shared/interface/http/idempotency.decorator';
 import {
   readSignedSessionCookie,
@@ -51,6 +52,7 @@ export class ReportsController {
       sessionId: session.id,
       customFartName: body.customFartName,
       tonePreset: body.tonePreset,
+      ipAddress: resolveClientIp(request),
     });
 
     writeSignedSessionCookie(reply, cookieName, session.id, this.config);
@@ -83,6 +85,7 @@ export class ReportsController {
       sessionId: session.id,
       customFartName: body.customFartName,
       tonePreset: body.tonePreset,
+      ipAddress: resolveClientIp(request),
     });
 
     writeSignedSessionCookie(reply, cookieName, session.id, this.config);

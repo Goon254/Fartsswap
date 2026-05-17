@@ -16,6 +16,8 @@ export interface GenerateFakeReportCommand {
   sessionId?: string;
   customFartName?: string;
   tonePreset?: string;
+  /** Best-effort client IP for AI quota accounting (not persisted, not logged). */
+  ipAddress?: string;
 }
 
 @Injectable()
@@ -42,6 +44,8 @@ export class GenerateFakeReportUseCase {
       source: ReportSource.FAKE,
       ...(command.customFartName !== undefined ? { customFartName: command.customFartName } : {}),
       ...(command.tonePreset !== undefined ? { tonePreset: command.tonePreset } : {}),
+      ...(command.sessionId !== undefined ? { sessionId: command.sessionId } : {}),
+      ...(command.ipAddress !== undefined ? { ipAddress: command.ipAddress } : {}),
       seed,
     });
 

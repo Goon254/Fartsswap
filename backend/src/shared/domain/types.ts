@@ -26,7 +26,9 @@ export enum AudioStatus {
 
 export enum ArtifactType {
   SHARE_CARD = 'share_card',
-  /** Reserved for Phase 3+ — not generated in Phase 2 */
+  /** Single-page PDF diagnostic dossier (Phase 7). */
+  REPORT_PDF = 'report_pdf',
+  /** Reserved — not generated yet. */
   PDF_CERTIFICATE = 'pdf_certificate',
   WAVEFORM = 'waveform',
 }
@@ -66,4 +68,7 @@ export enum AnalyticsEventType {
   AI_REPORT_REQUESTED = 'ai.report_requested',
   AI_REPORT_SUCCEEDED = 'ai.report_succeeded',
   AI_REPORT_FAILED = 'ai.report_failed',
+  PDF_ARTIFACT_REQUESTED = 'pdf.artifact_requested',
+  PDF_ARTIFACT_GENERATED = 'pdf.artifact_generated',
+  PDF_ARTIFACT_FAILED = 'pdf.artifact_failed',
 }

@@ -35,6 +35,16 @@ export interface AiReportRequest {
    * server-controlled report hash. Never sent to the model.
    */
   seed: string;
+  /**
+   * Anonymous session id. Used ONLY for quota accounting and outbox analytics
+   * attribution. Never included in prompts.
+   */
+  sessionId?: string;
+  /**
+   * Best-effort client IP for quota accounting (X-Forwarded-For first hop,
+   * falling back to request.ip). Never logged in cleartext via metrics labels.
+   */
+  ipAddress?: string;
 }
 
 export type ThreatLevel = 'Green' | 'Amber' | 'Red' | 'Cerulean';

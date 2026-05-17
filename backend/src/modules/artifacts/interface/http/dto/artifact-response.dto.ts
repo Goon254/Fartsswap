@@ -24,6 +24,9 @@ export class ArtifactResponseDto {
   @ApiPropertyOptional({ example: 'clinical' })
   styleVariant?: string;
 
+  @ApiPropertyOptional({ example: 'default' })
+  themeCode?: string;
+
   @ApiPropertyOptional()
   failureReason?: string;
 

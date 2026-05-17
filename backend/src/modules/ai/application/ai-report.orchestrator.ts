@@ -14,6 +14,12 @@ import {
 } from '../../reports/domain/fake-report-generator';
 import type { AiReportRequest, AiReportResult } from '../domain/ai-report.types';
 import {
+  AI_QUOTA_PORT,
+  type AiQuotaPort,
+  type QuotaCheckRequest,
+  type QuotaDecision,
+} from './ports/ai-quota.port';
+import {
   AiOutputParseError,
   buildFallbackFields,
   normaliseModelOutput,
@@ -43,6 +49,7 @@ export class AiReportOrchestrator {
 
   constructor(
     @Inject(AI_PROVIDER_PORT) private readonly provider: AiProviderPort,
+    @Inject(AI_QUOTA_PORT) private readonly quota: AiQuotaPort,
     private readonly config: AppConfigService,
     private readonly trackEvent: TrackAnalyticsEventUseCase,
     @Optional() private readonly metrics?: MetricsService,
@@ -63,6 +70,8 @@ export class AiReportOrchestrator {
       },
     });
 
+    this.metrics?.aiReportsAttemptedTotal.inc({ source: request.source });
+
     await this.trackEvent.trackBestEffort({
       eventType: AnalyticsEventType.AI_REPORT_REQUESTED,
       payload: {
@@ -75,6 +84,18 @@ export class AiReportOrchestrator {
 
     if (!this.provider.isCallable) {
       const result = fallbackResult('provider_not_callable', Date.now() - startedAt);
+      await this.recordOutcome(request, result);
+      return result;
+    }
+
+    // Quota enforcement: every attempt counts, including fallback. If either
+    // the per-session OR the per-IP daily cap is exceeded we skip the provider
+    // call entirely and short-circuit to the deterministic generator with
+    // reason=quota_exceeded.
+    const quota = await this.checkQuota(request);
+    if (quota.exceeded) {
+      this.metrics?.aiReportsQuotaExceededTotal.inc({ scope: quota.scope });
+      const result = fallbackResult(`quota_exceeded:${quota.scope}`, Date.now() - startedAt);
       await this.recordOutcome(request, result);
       return result;
     }
@@ -152,11 +173,43 @@ export class AiReportOrchestrator {
         ...(result.meta.fallbackReason ? { reason: result.meta.fallbackReason } : {}),
       },
     });
+  }
 
-    this.metrics?.reportsCreatedTotal.inc({
-      // existing counter; this is just a no-op label for non-report consumers.
-      source: request.source,
-    });
+  /**
+   * Consume daily quota for whichever identifiers are available on the
+   * request. Both per-session and per-IP are checked when present; we return
+   * the first scope that's over its limit (session > ip priority — session
+   * is the tighter, more-relevant cap to surface for "lab closed").
+   *
+   * A limit of `0` is treated as "unlimited / disabled" so operators can
+   * temporarily turn one scope off without code changes.
+   */
+  private async checkQuota(
+    request: AiReportRequest,
+  ): Promise<{ exceeded: false } | { exceeded: true; scope: 'session' | 'ip' }> {
+    const { dailySessionLimit, dailyIpLimit } = this.config.ai;
+    const checks: QuotaCheckRequest[] = [];
+    if (request.sessionId && dailySessionLimit > 0) {
+      checks.push({ scope: 'session', identifier: request.sessionId, limit: dailySessionLimit });
+    }
+    if (request.ipAddress && dailyIpLimit > 0) {
+      checks.push({ scope: 'ip', identifier: request.ipAddress, limit: dailyIpLimit });
+    }
+    if (checks.length === 0) return { exceeded: false };
+
+    let decisions: QuotaDecision[];
+    try {
+      decisions = await this.quota.consume(checks);
+    } catch (error) {
+      // Fail-open: a Redis hiccup must not break user requests. Log + carry on.
+      this.logger.warn({ err: error }, 'ai quota check failed; allowing request');
+      return { exceeded: false };
+    }
+    const exceededSession = decisions.find((d) => d.scope === 'session' && d.exceeded);
+    if (exceededSession) return { exceeded: true, scope: 'session' };
+    const exceededIp = decisions.find((d) => d.scope === 'ip' && d.exceeded);
+    if (exceededIp) return { exceeded: true, scope: 'ip' };
+    return { exceeded: false };
   }
 }
 

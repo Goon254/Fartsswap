@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { ReportArtifact } from '../../../../shared/domain/models';
-import type { ArtifactType } from '../../../../shared/domain/types';
+import { ArtifactStatus, type ArtifactType } from '../../../../shared/domain/types';
 import { getTransactionalManager } from '../../../../shared/infrastructure/transaction/transaction-context';
 import type { ReportArtifactRepository } from '../../application/ports/report-artifact.repository';
 import { ReportArtifactEntity } from './report-artifact.entity';
@@ -40,6 +40,18 @@ export class TypeOrmReportArtifactRepository implements ReportArtifactRepository
     return rows.map((row) => this.toDomain(row));
   }
 
+  async findReadyByReportTypeTheme(
+    reportId: string,
+    type: ArtifactType,
+    themeCode: string,
+  ): Promise<ReportArtifact | null> {
+    const row = await this.artifactsRepo().findOne({
+      where: { reportId, type, themeCode, status: ArtifactStatus.READY },
+      order: { createdAt: 'DESC' },
+    });
+    return row ? this.toDomain(row) : null;
+  }
+
   private toEntity(artifact: ReportArtifact): ReportArtifactEntity {
     const entity = new ReportArtifactEntity();
     entity.id = artifact.id;
@@ -49,6 +61,7 @@ export class TypeOrmReportArtifactRepository implements ReportArtifactRepository
     entity.storageKey = artifact.storageKey;
     entity.mimeType = artifact.mimeType;
     entity.styleVariant = artifact.styleVariant;
+    entity.themeCode = artifact.themeCode;
     entity.failureReason = artifact.failureReason;
     entity.createdAt = new Date(artifact.createdAt);
     entity.updatedAt = new Date(artifact.updatedAt);
@@ -66,6 +79,7 @@ export class TypeOrmReportArtifactRepository implements ReportArtifactRepository
       storageKey: entity.storageKey,
       mimeType: entity.mimeType,
       styleVariant: entity.styleVariant,
+      themeCode: entity.themeCode,
       failureReason: entity.failureReason,
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),

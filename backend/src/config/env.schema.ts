@@ -50,6 +50,10 @@ export const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  // --- AI usage caps (Redis-backed, per-day) ---
+  AI_DAILY_SESSION_LIMIT: z.coerce.number().int().min(0).default(50),
+  AI_DAILY_IP_LIMIT: z.coerce.number().int().min(0).default(200),
+
   SESSION_COOKIE_NAME: z.string().default('farts_session'),
   SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(2_592_000),
   SESSION_COOKIE_SECRET: z.string().min(32).optional(),

@@ -1,11 +1,5 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import {
-  collectDefaultMetrics,
-  Counter,
-  Gauge,
-  Histogram,
-  Registry,
-} from 'prom-client';
+import { collectDefaultMetrics, Counter, Gauge, Histogram, Registry } from 'prom-client';
 
 /**
  * Central Prometheus registry.
@@ -77,6 +71,35 @@ export class MetricsService implements OnModuleInit {
   readonly audioRetentionDeletedTotal = new Counter({
     name: 'audio_retention_deleted_total',
     help: 'Audio uploads deleted by the retention sweeper',
+    registers: [this.registry],
+  });
+
+  readonly aiReportsAttemptedTotal = new Counter({
+    name: 'ai_reports_attempted_total',
+    help: 'AI report orchestrations attempted, by source',
+    labelNames: ['source'] as const,
+    registers: [this.registry],
+  });
+
+  readonly aiReportsQuotaExceededTotal = new Counter({
+    name: 'ai_reports_quota_exceeded_total',
+    help: 'AI report calls short-circuited because a usage cap was hit',
+    labelNames: ['scope'] as const, // 'session' | 'ip'
+    registers: [this.registry],
+  });
+
+  readonly pdfArtifactsGeneratedTotal = new Counter({
+    name: 'pdf_artifacts_generated_total',
+    help: 'PDF report artifacts generated, by theme + outcome',
+    labelNames: ['themeCode', 'outcome'] as const, // 'ok' | 'failed'
+    registers: [this.registry],
+  });
+
+  readonly pdfArtifactGenerationSeconds = new Histogram({
+    name: 'pdf_artifact_generation_seconds',
+    help: 'Time spent rendering + storing a PDF report artifact, by theme',
+    labelNames: ['themeCode'] as const,
+    buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5],
     registers: [this.registry],
   });
 

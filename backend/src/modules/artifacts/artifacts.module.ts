@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ObservabilityModule } from '../../observability/observability.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { IdentityModule } from '../identity/identity.module';
 import { ReportsModule } from '../reports/reports.module';
 import { REPORT_ARTIFACT_REPOSITORY } from './application/ports/report-artifact.repository';
 import { SHARE_CARD_RENDERER_PORT } from './application/ports/share-card-renderer.port';
+import { GeneratePdfReportArtifactUseCase } from './application/generate-pdf-report-artifact.use-case';
 import { GenerateShareCardArtifactUseCase } from './application/generate-share-card-artifact.use-case';
 import { GetArtifactContentUseCase } from './application/get-artifact-content.use-case';
 import { GetArtifactUseCase } from './application/get-artifact.use-case';
@@ -23,6 +25,7 @@ import { ReportArtifactsController } from './interface/http/report-artifacts.con
     ReportsModule,
     IdentityModule,
     AnalyticsModule,
+    ObservabilityModule,
   ],
   controllers: [ReportArtifactsController, ArtifactsController],
   providers: [
@@ -30,10 +33,16 @@ import { ReportArtifactsController } from './interface/http/report-artifacts.con
     { provide: SHARE_CARD_RENDERER_PORT, useClass: HtmlShareCardRendererAdapter },
     ShareCardArtifactGenerator,
     GenerateShareCardArtifactUseCase,
+    GeneratePdfReportArtifactUseCase,
     ListReportArtifactsUseCase,
     GetArtifactUseCase,
     GetArtifactContentUseCase,
   ],
-  exports: [GenerateShareCardArtifactUseCase, ListReportArtifactsUseCase, GetArtifactUseCase],
+  exports: [
+    GenerateShareCardArtifactUseCase,
+    GeneratePdfReportArtifactUseCase,
+    ListReportArtifactsUseCase,
+    GetArtifactUseCase,
+  ],
 })
 export class ArtifactsModule {}

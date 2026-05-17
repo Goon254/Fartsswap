@@ -51,6 +51,7 @@ describe('GenerateShareCardArtifactUseCase', () => {
       update: jest.fn().mockResolvedValue(undefined),
       findById: jest.fn(),
       findByReportId: jest.fn(),
+      findReadyByReportTypeTheme: jest.fn().mockResolvedValue(null),
     };
     queue = { enqueue: jest.fn().mockResolvedValue('job-1') };
     generator = {
