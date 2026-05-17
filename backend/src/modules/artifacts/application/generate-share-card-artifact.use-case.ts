@@ -1,4 +1,4 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, Optional } from '@nestjs/common';
 import type { ReportArtifact } from '../../../shared/domain/models';
 import {
   AnalyticsEventType,
@@ -9,6 +9,11 @@ import {
 import { CLOCK_PORT, type ClockPort } from '../../../shared/application/ports/clock.port';
 import { ID_GENERATOR_PORT, type IdGeneratorPort } from '../../../shared/application/ports/id-generator.port';
 import { QUEUE_PORT, type QueuePort } from '../../../shared/application/ports/queue.port';
+import {
+  TRANSACTION_PORT,
+  type TransactionPort,
+} from '../../../shared/application/ports/transaction.port';
+import { MetricsService } from '../../../observability/metrics.service';
 import { REPORT_REPOSITORY, type ReportRepository } from '../../reports/application/ports/report.repository';
 import { TrackAnalyticsEventUseCase } from '../../analytics/application/track-analytics-event.use-case';
 import {
@@ -27,14 +32,18 @@ export const ARTIFACT_GENERATION_QUEUE = 'artifact-generation';
 
 @Injectable()
 export class GenerateShareCardArtifactUseCase {
+  private readonly logger = new Logger(GenerateShareCardArtifactUseCase.name);
+
   constructor(
     @Inject(REPORT_REPOSITORY) private readonly reports: ReportRepository,
     @Inject(REPORT_ARTIFACT_REPOSITORY) private readonly artifacts: ReportArtifactRepository,
     @Inject(ID_GENERATOR_PORT) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK_PORT) private readonly clock: ClockPort,
     @Inject(QUEUE_PORT) private readonly queue: QueuePort,
+    @Inject(TRANSACTION_PORT) private readonly tx: TransactionPort,
     private readonly generator: ShareCardArtifactGenerator,
     private readonly trackEvent: TrackAnalyticsEventUseCase,
+    @Optional() private readonly metrics?: MetricsService,
   ) {}
 
   async execute(command: GenerateShareCardArtifactCommand): Promise<ReportArtifact> {
@@ -57,9 +66,23 @@ export class GenerateShareCardArtifactUseCase {
       updatedAt: now.toISOString(),
     };
 
-    await this.artifacts.save(artifact);
+    // PENDING -> PROCESSING flip is a single logical transition for the row
+    // we're about to write; do both writes atomically so we never observe
+    // PENDING without a matching PROCESSING update.
+    artifact = {
+      ...artifact,
+      status: ArtifactStatus.PROCESSING,
+      updatedAt: this.clock.now().toISOString(),
+    };
+    await this.tx.run(async () => {
+      await this.artifacts.save({
+        ...artifact,
+        status: ArtifactStatus.PENDING,
+      });
+      await this.artifacts.update(artifact);
+    });
 
-    await this.trackEvent.execute({
+    await this.trackEvent.trackBestEffort({
       sessionId: command.sessionId,
       reportId: command.reportId,
       eventType: AnalyticsEventType.ARTIFACT_GENERATION_REQUESTED,
@@ -70,15 +93,19 @@ export class GenerateShareCardArtifactUseCase {
       },
     });
 
-    await this.queue.enqueue(ARTIFACT_GENERATION_QUEUE, {
-      artifactId,
-      reportId: command.reportId,
-      type: ArtifactType.SHARE_CARD,
-      styleVariant,
-    });
-
-    artifact = { ...artifact, status: ArtifactStatus.PROCESSING, updatedAt: this.clock.now().toISOString() };
-    await this.artifacts.update(artifact);
+    try {
+      await this.queue.enqueue(ARTIFACT_GENERATION_QUEUE, {
+        artifactId,
+        reportId: command.reportId,
+        type: ArtifactType.SHARE_CARD,
+        styleVariant,
+      });
+    } catch (error) {
+      this.logger.warn(
+        { err: error, artifactId },
+        'artifact queue enqueue failed (ignored)',
+      );
+    }
 
     try {
       const result = await this.generator.generate({ artifact, report, styleVariant });
@@ -93,7 +120,7 @@ export class GenerateShareCardArtifactUseCase {
       };
       await this.artifacts.update(artifact);
 
-      await this.trackEvent.execute({
+      await this.trackEvent.trackBestEffort({
         sessionId: command.sessionId,
         reportId: command.reportId,
         eventType: AnalyticsEventType.ARTIFACT_GENERATED,
@@ -105,6 +132,7 @@ export class GenerateShareCardArtifactUseCase {
         },
       });
 
+      this.metrics?.artifactsGeneratedTotal.inc({ type: ArtifactType.SHARE_CARD, outcome: 'ok' });
       return artifact;
     } catch (error) {
       const failedAt = this.clock.now().toISOString();
@@ -118,7 +146,7 @@ export class GenerateShareCardArtifactUseCase {
       };
       await this.artifacts.update(artifact);
 
-      await this.trackEvent.execute({
+      await this.trackEvent.trackBestEffort({
         sessionId: command.sessionId,
         reportId: command.reportId,
         eventType: AnalyticsEventType.ARTIFACT_GENERATION_FAILED,
@@ -127,6 +155,11 @@ export class GenerateShareCardArtifactUseCase {
           type: ArtifactType.SHARE_CARD,
           failureReason,
         },
+      });
+
+      this.metrics?.artifactsGeneratedTotal.inc({
+        type: ArtifactType.SHARE_CARD,
+        outcome: 'failed',
       });
 
       throw new InternalServerErrorException({

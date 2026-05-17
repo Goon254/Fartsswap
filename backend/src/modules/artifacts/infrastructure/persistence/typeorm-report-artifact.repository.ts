@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { ReportArtifact } from '../../../../shared/domain/models';
 import type { ArtifactType } from '../../../../shared/domain/types';
+import { getTransactionalManager } from '../../../../shared/infrastructure/transaction/transaction-context';
 import type { ReportArtifactRepository } from '../../application/ports/report-artifact.repository';
 import { ReportArtifactEntity } from './report-artifact.entity';
 
@@ -13,21 +14,26 @@ export class TypeOrmReportArtifactRepository implements ReportArtifactRepository
     private readonly repo: Repository<ReportArtifactEntity>,
   ) {}
 
+  private artifactsRepo(): Repository<ReportArtifactEntity> {
+    const tx = getTransactionalManager();
+    return tx ? tx.getRepository(ReportArtifactEntity) : this.repo;
+  }
+
   async save(artifact: ReportArtifact): Promise<void> {
-    await this.repo.save(this.toEntity(artifact));
+    await this.artifactsRepo().save(this.toEntity(artifact));
   }
 
   async update(artifact: ReportArtifact): Promise<void> {
-    await this.repo.save(this.toEntity(artifact));
+    await this.artifactsRepo().save(this.toEntity(artifact));
   }
 
   async findById(id: string): Promise<ReportArtifact | null> {
-    const row = await this.repo.findOne({ where: { id } });
+    const row = await this.artifactsRepo().findOne({ where: { id } });
     return row ? this.toDomain(row) : null;
   }
 
   async findByReportId(reportId: string, type?: ArtifactType): Promise<ReportArtifact[]> {
-    const rows = await this.repo.find({
+    const rows = await this.artifactsRepo().find({
       where: type ? { reportId, type } : { reportId },
       order: { createdAt: 'DESC' },
     });

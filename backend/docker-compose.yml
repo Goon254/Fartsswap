@@ -34,10 +34,30 @@ services:
     environment:
       DATABASE_HOST: postgres
       REDIS_HOST: redis
+      APP_ROLE: api
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+    volumes:
+      - ./.storage:/app/.storage
+
+  worker:
+    build: .
+    command: ['node', 'dist/worker.js']
+    env_file:
+      - .env
+    environment:
+      DATABASE_HOST: postgres
+      REDIS_HOST: redis
+      APP_ROLE: worker
+      # Workers should not race the API to run migrations.
+      DATABASE_RUN_MIGRATIONS: 'false'
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
         condition: service_healthy
     volumes:
       - ./.storage:/app/.storage

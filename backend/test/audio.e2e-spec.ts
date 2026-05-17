@@ -1,12 +1,6 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ValidationPipe } from '@nestjs/common';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import fastifyCookie from '@fastify/cookie';
-import fastifyMultipart from '@fastify/multipart';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { runMigrations } from '../src/database/run-migrations';
-import { isDatabaseAvailable } from './helpers/database-available';
+import { bootstrapTestApp, requireSetCookie, validWebmBuffer } from './helpers/bootstrap-test-app';
 
 const describeE2e = process.env.SKIP_E2E === 'true' ? describe.skip : describe;
 
@@ -14,37 +8,15 @@ describeE2e('Audio (e2e)', () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
-    const available = await isDatabaseAvailable();
-    if (!available) {
-      throw new Error(
-        'Postgres is not reachable. Start it with: docker compose up -d postgres',
-      );
-    }
-
-    await runMigrations();
-
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-    );
-    await app.register(fastifyCookie);
-    await app.register(fastifyMultipart, { limits: { fileSize: 1_048_576, files: 1 } });
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    app = await bootstrapTestApp({ multipart: true });
   }, 30_000);
 
   afterAll(async () => {
-    if (app) {
-      await app.close();
-    }
+    if (app) await app.close();
   });
 
-  it('uploads audio, creates report from audio, and rejects bad mime', async () => {
-    const buffer = Buffer.from('fake-webm-audio-bytes');
+  it('uploads real audio bytes, creates report, rejects spoofed mime', async () => {
+    const buffer = validWebmBuffer();
 
     const uploadRes = await request(app.getHttpServer())
       .post('/api/v1/audio/uploads')
@@ -56,13 +28,12 @@ describeE2e('Audio (e2e)', () => {
     expect(uploadRes.body.status).toBe('uploaded');
     expect(uploadRes.body.mimeType).toBe('audio/webm');
 
-    const cookies = uploadRes.headers['set-cookie'];
+    const cookies = requireSetCookie(uploadRes);
 
     const metaRes = await request(app.getHttpServer())
-      .get(`/api/v1/audio/uploads/${uploadRes.body.id}`)
+      .get(`/api/v1/audio/uploads/${String(uploadRes.body.id)}`)
       .set('Cookie', cookies)
       .expect(200);
-
     expect(metaRes.body.storageKey).toBeUndefined();
 
     const reportRes = await request(app.getHttpServer())
@@ -73,10 +44,20 @@ describeE2e('Audio (e2e)', () => {
 
     expect(reportRes.body.source).toBe('audio_recording');
     expect(reportRes.body.fartName).toBe('Recorded Bean');
+  });
 
+  it('rejects upload whose declared MIME is allowed but bytes are not really audio', async () => {
+    const fakeBytes = Buffer.from('this is plain text claiming to be webm audio');
     await request(app.getHttpServer())
       .post('/api/v1/audio/uploads')
-      .attach('file', buffer, { filename: 'clip.wav', contentType: 'audio/wav' })
+      .attach('file', fakeBytes, { filename: 'spoof.webm', contentType: 'audio/webm' })
+      .expect(400);
+  });
+
+  it('rejects upload with disallowed declared MIME', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/audio/uploads')
+      .attach('file', validWebmBuffer(), { filename: 'clip.wav', contentType: 'audio/wav' })
       .expect(400);
   });
 });

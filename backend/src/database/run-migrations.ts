@@ -14,3 +14,20 @@ export async function runMigrations(): Promise<void> {
   }
   await dataSource.destroy();
 }
+
+// Allow running as a standalone CLI: `node dist/database/run-migrations.js`.
+// Useful as a K8s initContainer / pre-deploy step when boot-time migrations
+// are disabled via DATABASE_RUN_MIGRATIONS=false.
+if (require.main === module) {
+  runMigrations()
+    .then(() => {
+       
+      console.log('Migrations complete.');
+      process.exit(0);
+    })
+    .catch((error: unknown) => {
+       
+      console.error('Migrations failed', error);
+      process.exit(1);
+    });
+}

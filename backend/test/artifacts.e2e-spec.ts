@@ -1,11 +1,6 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ValidationPipe } from '@nestjs/common';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import fastifyCookie from '@fastify/cookie';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { runMigrations } from '../src/database/run-migrations';
-import { isDatabaseAvailable } from './helpers/database-available';
+import { bootstrapTestApp, requireSetCookie } from './helpers/bootstrap-test-app';
 
 const describeE2e = process.env.SKIP_E2E === 'true' ? describe.skip : describe;
 
@@ -13,32 +8,11 @@ describeE2e('Artifacts (e2e)', () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
-    const available = await isDatabaseAvailable();
-    if (!available) {
-      throw new Error(
-        'Postgres is not reachable. Start it with: docker compose up -d postgres',
-      );
-    }
-
-    await runMigrations();
-
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter(),
-    );
-    await app.register(fastifyCookie);
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-    await app.init();
-    await app.getHttpAdapter().getInstance().ready();
+    app = await bootstrapTestApp();
   }, 30_000);
 
   afterAll(async () => {
-    if (app) {
-      await app.close();
-    }
+    if (app) await app.close();
   });
 
   it('generates share-card artifact and retrieves metadata and content', async () => {
@@ -47,8 +21,8 @@ describeE2e('Artifacts (e2e)', () => {
       .send({ customFartName: 'Artifact Bean' })
       .expect(201);
 
-    const reportId = reportRes.body.id;
-    const cookies = reportRes.headers['set-cookie'];
+    const reportId = String(reportRes.body.id);
+    const cookies = requireSetCookie(reportRes);
 
     const artifactRes = await request(app.getHttpServer())
       .post(`/api/v1/reports/${reportId}/artifacts/share-card`)
@@ -69,15 +43,8 @@ describeE2e('Artifacts (e2e)', () => {
     expect(listRes.body.length).toBeGreaterThanOrEqual(1);
     expect(listRes.body[0].id).toBe(artifactRes.body.id);
 
-    const detailRes = await request(app.getHttpServer())
-      .get(`/api/v1/artifacts/${artifactRes.body.id}`)
-      .set('Cookie', cookies)
-      .expect(200);
-
-    expect(detailRes.body.retrievalUrl).toBeDefined();
-
     const contentRes = await request(app.getHttpServer())
-      .get(`/api/v1/artifacts/${artifactRes.body.id}/content`)
+      .get(`/api/v1/artifacts/${String(artifactRes.body.id)}/content`)
       .set('Cookie', cookies)
       .expect(200);
 

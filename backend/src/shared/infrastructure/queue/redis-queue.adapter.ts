@@ -27,7 +27,7 @@ export class RedisQueueAdapter implements QueuePort, OnModuleDestroy {
         connection: {
           host,
           port,
-          password: password || undefined,
+          password: password ?? undefined,
         },
       });
       this.queues.set(name, queue);

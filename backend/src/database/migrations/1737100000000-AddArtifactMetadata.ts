@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddArtifactMetadata1737100000000 implements MigrationInterface {
   name = 'AddArtifactMetadata1737100000000';

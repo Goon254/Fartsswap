@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ObservabilityModule } from '../../observability/observability.module';
+import { AiModule } from '../ai/ai.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { AudioModule } from '../audio/audio.module';
 import { IdentityModule } from '../identity/identity.module';
@@ -18,6 +20,8 @@ import { ReportsController } from './interface/http/reports.controller';
     IdentityModule,
     AnalyticsModule,
     AudioModule,
+    AiModule,
+    ObservabilityModule,
   ],
   controllers: [ReportsController],
   providers: [

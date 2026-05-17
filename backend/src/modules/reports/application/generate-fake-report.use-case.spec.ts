@@ -4,12 +4,15 @@ import type { ClockPort } from '../../../shared/application/ports/clock.port';
 import type { IdGeneratorPort } from '../../../shared/application/ports/id-generator.port';
 import { ReportSource, ReportStatus, AnalyticsEventType } from '../../../shared/domain/types';
 import type { TrackAnalyticsEventUseCase } from '../../analytics/application/track-analytics-event.use-case';
+import { fakeTransactionPort, fakeTrackAnalytics } from '../../../../test/helpers/mock-transaction';
+import { fakeOrchestrator } from '../../../../test/helpers/mock-ai-orchestrator';
 
 describe('GenerateFakeReportUseCase', () => {
   const fixedNow = new Date('2026-05-17T12:00:00.000Z');
   let reportRepo: jest.Mocked<ReportRepository>;
   let ids: IdGeneratorPort;
-  let trackEvent: jest.Mocked<Pick<TrackAnalyticsEventUseCase, 'execute'>>;
+  let trackEvent: ReturnType<typeof fakeTrackAnalytics>;
+  let orchestrator: ReturnType<typeof fakeOrchestrator>;
   let useCase: GenerateFakeReportUseCase;
   let idCounter: number;
 
@@ -27,16 +30,19 @@ describe('GenerateFakeReportUseCase', () => {
       }),
     };
     const clock: ClockPort = { now: () => fixedNow };
-    trackEvent = { execute: jest.fn().mockResolvedValue({}) };
+    trackEvent = fakeTrackAnalytics();
+    orchestrator = fakeOrchestrator({ fartName: 'Thunder Bean', threatLevel: 'Red' });
     useCase = new GenerateFakeReportUseCase(
       reportRepo,
       ids,
       clock,
+      fakeTransactionPort(),
       trackEvent as unknown as TrackAnalyticsEventUseCase,
+      orchestrator,
     );
   });
 
-  it('persists a completed fake report and input', async () => {
+  it('persists a completed fake report using AI-orchestrated fields', async () => {
     const report = await useCase.execute({
       sessionId: 'session-1',
       customFartName: 'Thunder Bean',
@@ -47,7 +53,7 @@ describe('GenerateFakeReportUseCase', () => {
     expect(report.source).toBe(ReportSource.FAKE);
     expect(report.sessionId).toBe('session-1');
     expect(report.fartName).toBe('Thunder Bean');
-    expect(report.classification).toBeTruthy();
+    expect(report.threatLevel).toBe('Red');
     expect(reportRepo.saveReport).toHaveBeenCalledWith(report);
     expect(reportRepo.saveReportInput).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -57,11 +63,61 @@ describe('GenerateFakeReportUseCase', () => {
         source: ReportSource.FAKE,
       }),
     );
-    expect(trackEvent.execute).toHaveBeenCalledWith(
+
+    // Orchestrator received a normalised request without any session/cookie data.
+    const aiCall = orchestrator.lastRequest();
+    expect(aiCall).toEqual(
+      expect.objectContaining({
+        source: ReportSource.FAKE,
+        customFartName: 'Thunder Bean',
+        tonePreset: 'dramatic',
+      }),
+    );
+    expect(aiCall).not.toHaveProperty('sessionId');
+
+    expect(trackEvent.trackBestEffort).toHaveBeenCalledWith(
       expect.objectContaining({
         sessionId: 'session-1',
         reportId: report.id,
         eventType: AnalyticsEventType.REPORT_GENERATED,
+        payload: expect.objectContaining({
+          aiSource: 'model',
+          aiProvider: 'openai',
+          aiFallbackUsed: false,
+        }),
+      }),
+    );
+  });
+
+  it('still produces a report when AI orchestrator returns fallback fields', async () => {
+    orchestrator = fakeOrchestrator(
+      { fartName: 'Emission 5000', classification: 'Silent Assassin' },
+      {
+        source: 'fallback',
+        provider: 'deterministic',
+        model: 'fallback',
+        fallbackUsed: true,
+        fallbackReason: 'provider_not_callable',
+      },
+    );
+    useCase = new GenerateFakeReportUseCase(
+      reportRepo,
+      ids,
+      { now: () => fixedNow },
+      fakeTransactionPort(),
+      trackEvent as unknown as TrackAnalyticsEventUseCase,
+      orchestrator,
+    );
+
+    const report = await useCase.execute({ sessionId: 'sess', tonePreset: 'clinical' });
+
+    expect(report.fartName).toBe('Emission 5000');
+    expect(trackEvent.trackBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          aiSource: 'fallback',
+          aiFallbackUsed: true,
+        }),
       }),
     );
   });

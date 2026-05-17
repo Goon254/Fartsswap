@@ -1,7 +1,13 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Req, Res } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppConfigService } from '../../../../config/config.service';
+import { Idempotent } from '../../../../shared/interface/http/idempotency.decorator';
+import { RateLimit } from '../../../../shared/interface/http/rate-limit.decorator';
+import {
+  readSignedSessionCookie,
+  writeSignedSessionCookie,
+} from '../../../../shared/interface/http/session-cookie';
 import { ResolveAnonymousSessionUseCase } from '../../../identity/application/resolve-anonymous-session.use-case';
 import { GenerateShareCardArtifactUseCase } from '../../application/generate-share-card-artifact.use-case';
 import { ListReportArtifactsUseCase } from '../../application/list-report-artifacts.use-case';
@@ -20,6 +26,13 @@ export class ReportArtifactsController {
 
   @Post('share-card')
   @HttpCode(HttpStatus.CREATED)
+  @RateLimit({ max: 20, windowSeconds: 60 })
+  @Idempotent({ scope: 'artifacts:share-card', includePathParam: 'reportId' })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'Optional UUID. Replays the same response within the TTL window.',
+  })
   @ApiOperation({ summary: 'Generate a share-card artifact for a report' })
   @ApiCreatedResponse({ type: ArtifactResponseDto })
   async createShareCard(
@@ -29,9 +42,9 @@ export class ReportArtifactsController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<ArtifactResponseDto> {
     const session = await this.resolveSession.execute(
-      this.readSessionCookie(request, this.config.session.cookieName),
+      readSignedSessionCookie(request, this.config.session.cookieName),
     );
-    this.setSessionCookie(reply, this.config.session.cookieName, session.id);
+    writeSignedSessionCookie(reply, this.config.session.cookieName, session.id, this.config);
 
     const artifact = await this.generateShareCard.execute({
       reportId,
@@ -54,9 +67,9 @@ export class ReportArtifactsController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<ArtifactResponseDto[]> {
     const session = await this.resolveSession.execute(
-      this.readSessionCookie(request, this.config.session.cookieName),
+      readSignedSessionCookie(request, this.config.session.cookieName),
     );
-    this.setSessionCookie(reply, this.config.session.cookieName, session.id);
+    writeSignedSessionCookie(reply, this.config.session.cookieName, session.id, this.config);
 
     const artifacts = await this.listArtifacts.execute(reportId);
     return artifacts.map((artifact) =>
@@ -65,20 +78,5 @@ export class ReportArtifactsController {
         contentUrl: `/api/v1/artifacts/${artifact.id}/content`,
       }),
     );
-  }
-
-  private readSessionCookie(request: FastifyRequest, cookieName: string): string | undefined {
-    const cookies = request.cookies as Record<string, string> | undefined;
-    return cookies?.[cookieName];
-  }
-
-  private setSessionCookie(reply: FastifyReply, cookieName: string, sessionId: string): void {
-    void reply.setCookie(cookieName, sessionId, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: this.config.session.ttlSeconds,
-      secure: this.config.isProduction,
-    });
   }
 }

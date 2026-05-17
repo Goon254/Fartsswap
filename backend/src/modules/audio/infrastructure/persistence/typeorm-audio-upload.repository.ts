@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { AudioUpload } from '../../../../shared/domain/models';
+import { getTransactionalManager } from '../../../../shared/infrastructure/transaction/transaction-context';
 import type { AudioUploadRepository } from '../../application/ports/audio-upload.repository';
 import { AudioUploadEntity } from './audio-upload.entity';
 
@@ -12,16 +13,21 @@ export class TypeOrmAudioUploadRepository implements AudioUploadRepository {
     private readonly repo: Repository<AudioUploadEntity>,
   ) {}
 
+  private uploadsRepo(): Repository<AudioUploadEntity> {
+    const tx = getTransactionalManager();
+    return tx ? tx.getRepository(AudioUploadEntity) : this.repo;
+  }
+
   async save(upload: AudioUpload): Promise<void> {
-    await this.repo.save(this.toEntity(upload));
+    await this.uploadsRepo().save(this.toEntity(upload));
   }
 
   async update(upload: AudioUpload): Promise<void> {
-    await this.repo.save(this.toEntity(upload));
+    await this.uploadsRepo().save(this.toEntity(upload));
   }
 
   async findById(id: string): Promise<AudioUpload | null> {
-    const row = await this.repo.findOne({ where: { id } });
+    const row = await this.uploadsRepo().findOne({ where: { id } });
     return row ? this.toDomain(row) : null;
   }
 
@@ -42,6 +48,12 @@ export class TypeOrmAudioUploadRepository implements AudioUploadRepository {
     return entity;
   }
 
+  private parseNumeric(value: unknown): number | undefined {
+    if (value === undefined || value === null) return undefined;
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
   private toDomain(entity: AudioUploadEntity): AudioUpload {
     return {
       id: entity.id,
@@ -51,7 +63,9 @@ export class TypeOrmAudioUploadRepository implements AudioUploadRepository {
       storageKey: entity.storageKey,
       mimeType: entity.mimeType,
       sizeBytes: entity.sizeBytes,
-      durationSeconds: entity.durationSeconds ? Number(entity.durationSeconds) : undefined,
+      // pg returns numeric() columns as string at runtime even though the
+      // entity is typed `number`; coerce defensively.
+      durationSeconds: this.parseNumeric(entity.durationSeconds),
       createdAt: entity.createdAt.toISOString(),
       updatedAt: entity.updatedAt.toISOString(),
       processedAt: entity.processedAt?.toISOString(),

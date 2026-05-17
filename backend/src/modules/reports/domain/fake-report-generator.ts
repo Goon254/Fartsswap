@@ -76,13 +76,17 @@ function hashSeed(seed: string): number {
 }
 
 function pick<T>(items: readonly T[], index: number): T {
-  return items[index % items.length] as T;
+  // `index` may be negative because we use signed bit shifts on the seed
+  // hash; guard against that so the modulo always lands in [0, length).
+  const positive = ((index % items.length) + items.length) % items.length;
+  return items[positive] as T;
 }
 
 export function generateFakeReportFields(input: FakeReportGenerationInput): FakeReportFields {
   const seed = input.seed ?? `${Date.now()}-${Math.random()}`;
   const base = hashSeed(seed);
-  const fartName = input.customFartName?.trim() || `Emission ${base % 9000 + 1000}`;
+  const trimmed = input.customFartName?.trim();
+  const fartName = trimmed && trimmed.length > 0 ? trimmed : `Emission ${base % 9000 + 1000}`;
   const classification = pick(CLASSIFICATIONS, base);
   const powerScore = (base % 101);
   const durationMs = 800 + (base % 4200);

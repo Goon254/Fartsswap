@@ -63,4 +63,7 @@ export enum AnalyticsEventType {
   AUDIO_UPLOADED = 'audio.uploaded',
   AUDIO_UPLOAD_FAILED = 'audio.upload_failed',
   REPORT_CREATED_FROM_AUDIO = 'report.created_from_audio',
+  AI_REPORT_REQUESTED = 'ai.report_requested',
+  AI_REPORT_SUCCEEDED = 'ai.report_succeeded',
+  AI_REPORT_FAILED = 'ai.report_failed',
 }

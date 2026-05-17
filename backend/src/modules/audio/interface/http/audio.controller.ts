@@ -20,8 +20,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { MultipartFile, MultipartValue } from '@fastify/multipart';
 import { AppConfigService } from '../../../../config/config.service';
+import { RateLimit } from '../../../../shared/interface/http/rate-limit.decorator';
+import {
+  readSignedSessionCookie,
+  writeSignedSessionCookie,
+} from '../../../../shared/interface/http/session-cookie';
 import { ResolveAnonymousSessionUseCase } from '../../../identity/application/resolve-anonymous-session.use-case';
 import { DeleteAudioUploadUseCase } from '../../application/delete-audio-upload.use-case';
 import { GetAudioUploadUseCase } from '../../application/get-audio-upload.use-case';
@@ -41,6 +45,7 @@ export class AudioController {
 
   @Post('uploads')
   @HttpCode(HttpStatus.CREATED)
+  @RateLimit({ max: 12, windowSeconds: 60 })
   @ApiOperation({
     summary: 'Upload a short audio clip (multipart/form-data, field name: file)',
   })
@@ -61,9 +66,9 @@ export class AudioController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AudioUploadResponseDto> {
     const session = await this.resolveSession.execute(
-      this.readSessionCookie(request, this.config.session.cookieName),
+      readSignedSessionCookie(request, this.config.session.cookieName),
     );
-    this.setSessionCookie(reply, this.config.session.cookieName, session.id);
+    writeSignedSessionCookie(reply, this.config.session.cookieName, session.id, this.config);
 
     const parsed = await this.parseMultipartUpload(request);
 
@@ -87,9 +92,9 @@ export class AudioController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<AudioUploadResponseDto> {
     const session = await this.resolveSession.execute(
-      this.readSessionCookie(request, this.config.session.cookieName),
+      readSignedSessionCookie(request, this.config.session.cookieName),
     );
-    this.setSessionCookie(reply, this.config.session.cookieName, session.id);
+    writeSignedSessionCookie(reply, this.config.session.cookieName, session.id, this.config);
 
     const upload = await this.getAudioUpload.execute(id, session.id);
     return AudioUploadResponseDto.fromDomain(upload);
@@ -107,9 +112,9 @@ export class AudioController {
     @Res({ passthrough: true }) reply: FastifyReply,
   ): Promise<void> {
     const session = await this.resolveSession.execute(
-      this.readSessionCookie(request, this.config.session.cookieName),
+      readSignedSessionCookie(request, this.config.session.cookieName),
     );
-    this.setSessionCookie(reply, this.config.session.cookieName, session.id);
+    writeSignedSessionCookie(reply, this.config.session.cookieName, session.id, this.config);
 
     await this.deleteAudioUpload.execute(id, session.id);
   }
@@ -128,14 +133,14 @@ export class AudioController {
     const parts = request.parts();
     for await (const part of parts) {
       if (part.type === 'file') {
-        const file = part as MultipartFile;
+        const file = part;
         if (file.fieldname === 'file') {
           buffer = await file.toBuffer();
           mimeType = file.mimetype;
           filename = file.filename;
         }
       } else if (part.type === 'field') {
-        const field = part as MultipartValue;
+        const field = part;
         if (field.fieldname === 'durationSeconds') {
           const value = String(field.value);
           const parsed = Number(value);
@@ -151,20 +156,5 @@ export class AudioController {
     }
 
     return { buffer, mimeType, durationSeconds, filename };
-  }
-
-  private readSessionCookie(request: FastifyRequest, cookieName: string): string | undefined {
-    const cookies = request.cookies as Record<string, string> | undefined;
-    return cookies?.[cookieName];
-  }
-
-  private setSessionCookie(reply: FastifyReply, cookieName: string, sessionId: string): void {
-    void reply.setCookie(cookieName, sessionId, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: this.config.session.ttlSeconds,
-      secure: this.config.isProduction,
-    });
   }
 }

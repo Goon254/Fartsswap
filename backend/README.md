@@ -8,6 +8,81 @@ Modular monolith API for the AI Fart Report product.
 
 **Phase 3:** audio upload pipeline, report creation from recorded audio, privacy-oriented lifecycle.
 
+**Phase 4 (hardening):** signed session cookies, helmet/CORS/rate-limit, server-side audio
+magic-byte sniffing, path-traversal-safe storage, fail-fast S3, DB transaction boundaries,
+Idempotency-Key support on critical POSTs, optional audio auto-delete after processing,
+real Postgres/Redis/storage readiness checks, Docker boot verification.
+
+**Phase 5 (operational excellence):** real AWS-SDK S3 adapter, Redis-backed rate limit +
+idempotency cache, Prometheus `/metrics` (HTTP + business counters), OpenTelemetry
+tracing (env-gated), Sentry-style error reporting, graceful shutdown + signal handling,
+outbox table + dispatcher for at-least-once analytics, separate `worker` process,
+audio retention sweeper, strict TypeScript + strict typed ESLint, CI with audit +
+Trivy image scan + CycloneDX SBOM, ADR folder.
+
+**Phase 6 (AI report orchestrator):** real AI-authored report fields for both fake and
+audio flows behind an env-gated provider (`AI_PROVIDER=openai`), structured-JSON output
+contract with Zod validation, brand-safety + content-sanitisation pass, server-controlled
+`reportHash`, deterministic fallback on every failure (invalid JSON, timeout, provider
+error, disallowed content), `ai.report_*` analytics events without prompts or raw
+responses.
+
+### AI report orchestrator
+
+All report-creation endpoints (`POST /api/v1/reports/fake`, `POST /api/v1/reports/from-audio`)
+now route through `AiReportOrchestrator`. The orchestrator:
+
+1. Builds a strict, safety-laden system prompt + a source-shaped user prompt.
+2. Calls the configured provider (currently OpenAI-compatible chat completions).
+3. Parses + validates the JSON response with Zod.
+4. Runs a rule-based content safety + truncation pass.
+5. Generates the `reportHash` server-side (the model's suggestion is discarded).
+6. On any failure — invalid JSON, timeout, HTTP error, disallowed content — silently
+   falls back to the deterministic generator. **User requests never fail because of AI.**
+
+| Env | Purpose | Default |
+|---|---|---|
+| `AI_PROVIDER` | `openai`, `disabled`, `stub` | `disabled` |
+| `AI_ENABLED` | Master kill-switch. Set `true` to enable real AI calls. | `false` |
+| `AI_API_KEY` | Bearer token for the provider. | unset |
+| `AI_BASE_URL` | OpenAI-compatible endpoint root. | `https://api.openai.com/v1` |
+| `AI_MODEL` | Model id passed to the provider. | `gpt-4o-mini` |
+| `AI_TIMEOUT_MS` | Per-call deadline. The orchestrator falls back when exceeded. | `8000` |
+| `AI_MAX_TOKENS` | Soft cap on completion tokens. | `400` |
+| `AI_TEMPERATURE` | Sampling temperature. | `0.9` |
+| `AI_MAX_RETRIES` | Bounded retries on transient 5xx / timeouts. | `1` |
+| `AI_DEBUG_LOG` | When true, emits structured (no-prompt) debug logs. | `false` |
+
+**To run with AI disabled (default):** leave `AI_ENABLED=false`. The orchestrator routes
+every request to the deterministic fallback and emits `ai.report_failed` with
+`reason: "provider_not_callable"`. Output quality is identical to pre-AI phases.
+
+**To enable real AI:**
+```bash
+AI_PROVIDER=openai
+AI_ENABLED=true
+AI_API_KEY=sk-...
+AI_MODEL=gpt-4o-mini
+```
+Reports will now use AI-authored fields for `fartName`, `classification`, `powerScore`,
+`emotionalTone`, `probableCause`, `cinematicParallel`, `threatLevel`, `shortSummary`
+(plus optional `genre`, `confidenceLabel`, `warningBadge`). The server always controls
+`reportHash` and the `durationMs` for audio reports.
+
+**Safety guarantees:**
+- Hard refuse-list in the system prompt (sexual, slurs, medical, real-people, graphic,
+  self-harm, political).
+- Server-side regex sanitiser replaces any disallowed-content field with the deterministic
+  fallback, never partially redacts.
+- Length caps per field (60–180 chars) enforced after the model returns.
+- `threatLevel` normalised to the closed set `{Green, Amber, Red, Cerulean}`.
+
+**Analytics:**
+`ai.report_requested`, `ai.report_succeeded`, `ai.report_failed` are emitted via the
+outbox. Payloads include `source`, `provider`, `model`, `latencyMs`, `fallbackUsed`,
+and (on failure) a `reason` tag. Prompts and raw model output are **never** in analytics
+payloads.
+
 ## Prerequisites
 
 - Node.js 20+
@@ -142,6 +217,100 @@ cp .env.example .env
 docker compose up --build
 ```
 
+### Production container boot behavior
+
+The production image is a clean multi-stage build:
+
+1. **Builder stage** compiles TypeScript and asserts that
+   `dist/database/migrations/*.js` exist before tagging.
+2. **Runner stage** copies **only `dist/`** plus production node_modules. No
+   `src/` is shipped. The runtime user is non-root (`app:app`).
+
+Migrations:
+
+- **Default:** `node dist/main.js` runs pending migrations on boot when
+  `DATABASE_RUN_MIGRATIONS=true` (default).
+- **Pre-deploy / K8s initContainer:** disable boot-time migrations
+  (`DATABASE_RUN_MIGRATIONS=false`) and run them as a separate step:
+  ```bash
+  node dist/database/run-migrations.js
+  # or: npm run migration:run:prod
+  ```
+- The TypeORM data source resolves entities/migrations relative to its own
+  compiled location (`dist/database/data-source.js`), so paths are correct in
+  the production container.
+
+Verify the full production boot path locally (builds image, runs
+migrations, hits `/ready`):
+
+```bash
+npm run verify:docker-boot
+```
+
+### Process roles
+
+The same image can run as an HTTP API, a background worker, or both (default).
+Control via `APP_ROLE`:
+
+- `APP_ROLE=api` — Fastify HTTP server only. Use for the public-facing pods.
+- `APP_ROLE=worker` — no HTTP. Boots the outbox dispatcher + audio retention
+  sweeper only. Use for background pods.
+- `APP_ROLE=all` (default) — both. Use for dev or single-instance deploys.
+
+Entrypoints:
+```bash
+node dist/main.js     # HTTP API
+node dist/worker.js   # background worker
+```
+
+`docker-compose.yml` ships both an `api` and a `worker` service so you can
+exercise the split locally.
+
+### Observability
+
+| Endpoint / signal | Purpose |
+|---|---|
+| `GET /metrics` | Prometheus scrape. Default Node metrics + custom counters/histograms (`http_*`, `reports_created_total`, `audio_uploads_total`, `artifacts_generated_total`, `idempotency_replay_total`, `outbox_*`, `audio_retention_deleted_total`). Excluded from the public OpenAPI. |
+| OpenTelemetry traces | Enabled with `OTEL_ENABLED=true`. Auto-instruments Fastify HTTP, TypeORM/`pg`, ioredis, and outbound HTTP. Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your collector. |
+| Sentry-style errors | Set `SENTRY_DSN` to enable. Unhandled rejections, uncaught exceptions, and explicit `captureException` calls from background services flow here. No-op when DSN unset. |
+
+### Security / runtime configuration
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `SESSION_COOKIE_SECRET` | HMAC secret for signed anonymous session cookies. **Required in production** (≥32 chars). | dev-only fallback |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated origins, or `*` for dev only. | `*` |
+| `RATE_LIMIT_MAX` | Global request budget per `RATE_LIMIT_WINDOW_SECONDS`. Per-route POST limits are tighter (see `@RateLimit` decorators). | `60` |
+| `RATE_LIMIT_WINDOW_SECONDS` | Window for the global limiter. | `60` |
+| `REQUEST_BODY_LIMIT_BYTES` | JSON body limit. Multipart uploads use `AUDIO_UPLOAD_MAX_BYTES`. | `131072` |
+| `IDEMPOTENCY_TTL_SECONDS` | TTL for cached idempotent responses. | `86400` |
+| `AUDIO_AUTO_DELETE_AFTER_PROCESSING` | When `true`, raw audio is deleted from object storage immediately after a report is created from it. Status flips to `deleted`, metadata remains. | `false` |
+| `STORAGE_PROVIDER` | `local` (filesystem) or `s3` (AWS SDK v3 — works against AWS S3, MinIO, R2, Wasabi, DO Spaces via `STORAGE_ENDPOINT`). Env schema rejects boot for `s3` without `STORAGE_BUCKET` + `STORAGE_REGION`. | `local` |
+| `APP_ROLE` | `api`, `worker`, or `all`. Controls which subsystems boot in this process. | `all` |
+| `SHUTDOWN_GRACE_SECONDS` | How long to wait for in-flight requests + background ticks on SIGTERM. | `15` |
+| `AUDIO_RETENTION_MAX_AGE_HOURS` | Worker sweeper hard-deletes any non-deleted audio older than this. `0` disables. | `24` |
+| `OUTBOX_*` | Dispatcher poll interval, batch size, max attempts before dead-letter. | see `.env.example` |
+| `ENABLE_SWAGGER` | Force `/docs` on in production. Off by default in production to reduce attack surface. | unset |
+
+### Idempotency
+
+`POST /api/v1/reports/fake`, `POST /api/v1/reports/from-audio`, and
+`POST /api/v1/reports/:reportId/artifacts/share-card` accept an optional
+`Idempotency-Key` header (UUID-like, 8–128 chars, `[A-Za-z0-9_.:-]`).
+
+- First request executes normally and caches the response.
+- Retries with the same key + scope (+ same body) replay the cached response
+  and include `Idempotent-Replayed: true`.
+- Same key with a different body returns `409 Conflict`.
+- Keys are scoped to the originating session cookie so one session can't
+  replay another's response.
+
+### Health / readiness
+
+- `GET /health` — liveness only. No dependency checks. Never throttled.
+- `GET /ready` — verifies Postgres + storage + Redis (when
+  `QUEUE_PROVIDER=redis`). Use this for load-balancer readiness probes.
+
 ## Tests
 
 ```bash
@@ -153,6 +322,18 @@ docker compose up -d postgres
 npm run test:e2e
 ```
 
+CI runs (see `.github/workflows/backend-ci.yml`):
+- `build-and-test`: strict `tsc` typecheck, strict ESLint, build (asserts compiled migrations + worker), unit tests.
+- `audit`: `npm audit --omit=dev --audit-level=high`.
+- `e2e-tests`: real Postgres service container, runs migrations, executes the e2e suite.
+- `image-scan`: builds the production image, scans with Trivy (fails on HIGH/CRITICAL, uploads SARIF to GitHub code scanning), generates a CycloneDX SBOM artifact.
+
+### Architectural Decision Records
+
+See `docs/adr/` for the dated rationale behind major decisions
+(modular monolith, ports + adapters, ALS-based transactions, outbox,
+observability stack, idempotency, signed cookies, storage fail-fast).
+
 ## Module layout
 
 Each bounded context follows clean architecture layers:
@@ -162,4 +343,5 @@ Each bounded context follows clean architecture layers:
 - `infrastructure/` — TypeORM, adapters, renderers
 - `interface/http/` — controllers and DTOs
 
-Shared cross-cutting ports (queue, storage, AI, clock, IDs) live under `src/shared/`.
+Shared cross-cutting ports (queue, storage, AI, clock, IDs, transactions)
+live under `src/shared/`.

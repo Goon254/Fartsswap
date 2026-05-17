@@ -30,7 +30,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const errorBody =
       typeof message === 'string'
         ? { statusCode: status, message, path: request.url }
-        : { ...(message as object), path: request.url };
+        : { ...(message), path: request.url };
 
     if (status >= 500) {
       this.logger.error(

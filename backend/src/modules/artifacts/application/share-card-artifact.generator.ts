@@ -1,10 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Report, ReportArtifact } from '../../../shared/domain/models';
-import {
-  ArtifactStatus,
-  ArtifactType,
-  ShareCardStyleVariant,
-} from '../../../shared/domain/types';
+import { ShareCardStyleVariant } from '../../../shared/domain/types';
 import { OBJECT_STORAGE_PORT, type ObjectStoragePort } from '../../../shared/application/ports/object-storage.port';
 import {
   SHARE_CARD_RENDERER_PORT,

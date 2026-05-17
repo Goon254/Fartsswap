@@ -5,7 +5,7 @@ import type { ReportRepository } from '../../reports/application/ports/report.re
 import type { ClockPort } from '../../../shared/application/ports/clock.port';
 import type { IdGeneratorPort } from '../../../shared/application/ports/id-generator.port';
 import type { QueuePort } from '../../../shared/application/ports/queue.port';
-import { ShareCardArtifactGenerator } from './share-card-artifact.generator';
+import type { ShareCardArtifactGenerator } from './share-card-artifact.generator';
 import type { TrackAnalyticsEventUseCase } from '../../analytics/application/track-analytics-event.use-case';
 import {
   AnalyticsEventType,
@@ -14,6 +14,7 @@ import {
   ReportSource,
   ReportStatus,
 } from '../../../shared/domain/types';
+import { fakeTransactionPort, fakeTrackAnalytics } from '../../../../test/helpers/mock-transaction';
 
 describe('GenerateShareCardArtifactUseCase', () => {
   const fixedNow = new Date('2026-05-17T12:00:00.000Z');
@@ -21,7 +22,7 @@ describe('GenerateShareCardArtifactUseCase', () => {
   let artifacts: jest.Mocked<ReportArtifactRepository>;
   let queue: jest.Mocked<QueuePort>;
   let generator: jest.Mocked<Pick<ShareCardArtifactGenerator, 'generate'>>;
-  let trackEvent: jest.Mocked<Pick<TrackAnalyticsEventUseCase, 'execute'>>;
+  let trackEvent: ReturnType<typeof fakeTrackAnalytics>;
   let useCase: GenerateShareCardArtifactUseCase;
 
   beforeEach(() => {
@@ -58,7 +59,7 @@ describe('GenerateShareCardArtifactUseCase', () => {
         mimeType: 'text/html; charset=utf-8',
       }),
     };
-    trackEvent = { execute: jest.fn().mockResolvedValue({}) };
+    trackEvent = fakeTrackAnalytics();
     const clock: ClockPort = { now: () => fixedNow };
     const ids: IdGeneratorPort = { generate: () => 'art-1' };
 
@@ -68,6 +69,7 @@ describe('GenerateShareCardArtifactUseCase', () => {
       ids,
       clock,
       queue,
+      fakeTransactionPort(),
       generator as unknown as ShareCardArtifactGenerator,
       trackEvent as unknown as TrackAnalyticsEventUseCase,
     );
@@ -88,10 +90,10 @@ describe('GenerateShareCardArtifactUseCase', () => {
     expect(artifacts.update).toHaveBeenCalled();
     expect(queue.enqueue).toHaveBeenCalled();
     expect(generator.generate).toHaveBeenCalled();
-    expect(trackEvent.execute).toHaveBeenCalledWith(
+    expect(trackEvent.trackBestEffort).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: AnalyticsEventType.ARTIFACT_GENERATION_REQUESTED }),
     );
-    expect(trackEvent.execute).toHaveBeenCalledWith(
+    expect(trackEvent.trackBestEffort).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: AnalyticsEventType.ARTIFACT_GENERATED }),
     );
   });

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { Report, ReportInput } from '../../../../shared/domain/models';
+import { getTransactionalManager } from '../../../../shared/infrastructure/transaction/transaction-context';
 import type { ReportRepository } from '../../application/ports/report.repository';
 import { ReportEntity } from './report.entity';
 import { ReportInputEntity } from './report-input.entity';
@@ -13,16 +14,26 @@ export class TypeOrmReportRepository implements ReportRepository {
     @InjectRepository(ReportInputEntity) private readonly inputs: Repository<ReportInputEntity>,
   ) {}
 
+  private reportsRepo(): Repository<ReportEntity> {
+    const tx = getTransactionalManager();
+    return tx ? tx.getRepository(ReportEntity) : this.reports;
+  }
+
+  private inputsRepo(): Repository<ReportInputEntity> {
+    const tx = getTransactionalManager();
+    return tx ? tx.getRepository(ReportInputEntity) : this.inputs;
+  }
+
   async saveReport(report: Report): Promise<void> {
-    await this.reports.save(this.reportToEntity(report));
+    await this.reportsRepo().save(this.reportToEntity(report));
   }
 
   async saveReportInput(input: ReportInput): Promise<void> {
-    await this.inputs.save(this.inputToEntity(input));
+    await this.inputsRepo().save(this.inputToEntity(input));
   }
 
   async findReportById(id: string): Promise<Report | null> {
-    const row = await this.reports.findOne({ where: { id } });
+    const row = await this.reportsRepo().findOne({ where: { id } });
     return row ? this.reportToDomain(row) : null;
   }
 
