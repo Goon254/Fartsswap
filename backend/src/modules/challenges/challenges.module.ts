@@ -23,5 +23,6 @@ import { ChallengesController } from './interface/http/challenges.controller';
     RecordChallengeEventUseCase,
     ResolveChallengeUseCase,
   ],
+  exports: [RegisterChallengeUseCase],
 })
 export class ChallengesModule {}

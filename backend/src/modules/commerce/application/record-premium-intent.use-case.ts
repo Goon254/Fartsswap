@@ -6,12 +6,18 @@ import { CLOCK_PORT, type ClockPort } from '../../../shared/application/ports/cl
 import { ID_GENERATOR_PORT, type IdGeneratorPort } from '../../../shared/application/ports/id-generator.port';
 import { REPORT_REPOSITORY, type ReportRepository } from '../../reports/application/ports/report.repository';
 import { PremiumIntentEntity } from '../infrastructure/persistence/premium-intent.entity';
+import { mapPremiumIntentEntityToDomain } from '../infrastructure/persistence/premium-intent.mapper';
 
 export interface RecordPremiumIntentCommand {
   sessionId?: string;
   reportId?: string;
   kind: string;
   payload?: Record<string, unknown>;
+  lifecycleState?: string;
+  commerceThemeCode?: string;
+  productSku?: string;
+  amountCents?: number;
+  currency?: string;
 }
 
 @Injectable()
@@ -43,14 +49,13 @@ export class RecordPremiumIntentUseCase {
     entity.kind = command.kind;
     entity.payload = command.payload;
     entity.createdAt = now;
-    await this.intents.save(entity);
-    return {
-      id,
-      sessionId: command.sessionId,
-      reportId: command.reportId,
-      kind: command.kind,
-      payload: command.payload,
-      createdAt: now.toISOString(),
-    };
+    entity.updatedAt = now;
+    entity.lifecycleState = command.lifecycleState ?? 'intent_created';
+    entity.commerceThemeCode = command.commerceThemeCode;
+    entity.productSku = command.productSku;
+    entity.amountCents = command.amountCents;
+    entity.currency = command.currency ?? 'USD';
+    const saved = await this.intents.save(entity);
+    return mapPremiumIntentEntityToDomain(saved);
   }
 }

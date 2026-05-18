@@ -108,6 +108,54 @@ export const envSchema = z.object({
 
   /** Shared secret for internal ops/mission-control API (`x-ops-key` header). */
   OPS_CONSOLE_SECRET: z.string().optional(),
+
+  /**
+   * Optional dedicated secret for creator / Discord-tooling API (`x-creator-tools-key`).
+   * When unset, `OPS_CONSOLE_SECRET` is accepted for the same header (single key mode).
+   */
+  CREATOR_TOOLS_SECRET: z.string().optional(),
+
+  /** Public site origin for absolute URLs in bot payloads (no trailing slash). */
+  FARTS_PUBLIC_ORIGIN: z.string().optional(),
+
+  /** Community / server label embedded in creator payloads and analytics. */
+  CREATOR_COMMUNITY_LABEL: z.string().optional(),
+  /** Bulletin channel flavour key (cosmetic; drives copy variants later). */
+  CREATOR_BULLETIN_STYLE: z.string().optional(),
+  /** Tone preset label for generator hints (cosmetic metadata). */
+  CREATOR_TONE_PACK: z.string().optional(),
+  /** Comma-separated command ids enabled for tooling (default: all). */
+  CREATOR_ENABLED_COMMANDS: z.string().optional(),
+
+  /** When false, POST /gallery/submissions returns 403 (infrastructure can ship dark). */
+  GALLERY_SUBMISSIONS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** When false, GET /gallery/feed returns { enabled: false, items: [] }. */
+  GALLERY_PUBLIC_FEED_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+
+  /** When true, checkout-complete creates POD order rows + mock provider submit. */
+  POD_FULFILLMENT_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** mock: call MockPodProvider; disabled: persist order + package but skip provider. */
+  POD_PROVIDER_MODE: z.enum(['mock', 'disabled']).default('mock'),
+  /** Optional shared secret for POST /fulfillment/webhooks/mock (header x-pod-webhook-secret). */
+  POD_WEBHOOK_SECRET: z.string().optional(),
+
+  /**
+   * When true, creator plan features (e.g. batch_generation) require an active test subscription.
+   * Core single-shot classify stays free; enforcement applies to batch_size > 1 only.
+   */
+  CREATOR_ENTITLEMENT_ENFORCEMENT: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 })
 .superRefine((env, ctx) => {
   if (env.NODE_ENV === 'production' && !env.SESSION_COOKIE_SECRET) {

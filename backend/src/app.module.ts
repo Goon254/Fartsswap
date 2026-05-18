@@ -18,6 +18,11 @@ import { ChallengesModule } from './modules/challenges/challenges.module';
 import { CommerceModule } from './modules/commerce/commerce.module';
 import { SharesModule } from './modules/shares/shares.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { CreatorToolsModule } from './modules/creator-tools/creator-tools.module';
+import { RitualsModule } from './modules/rituals/rituals.module';
+import { ArtifactCommerceModule } from './modules/artifact-commerce/artifact-commerce.module';
+import { GalleryModule } from './modules/gallery/gallery.module';
+import { PlansModule } from './modules/plans/plans.module';
 
 @Module({
   imports: [
@@ -40,6 +45,11 @@ import { AdminModule } from './modules/admin/admin.module';
     CommerceModule,
     AdminModule,
     OpsModule,
+    RitualsModule,
+    CreatorToolsModule,
+    ArtifactCommerceModule,
+    GalleryModule,
+    PlansModule,
   ],
 })
 export class AppModule {}

@@ -136,6 +136,11 @@ const Row: FC<RowProps> = ({ row, onRowOpened }) => {
           <p className="mt-1 max-w-[58ch] text-[0.85rem] leading-snug text-[var(--text-muted)]">
             {row.note}
           </p>
+          {row.sponsorFootnote ? (
+            <p className="mt-2 max-w-[58ch] border-l border-[var(--border-brass)] pl-2 font-mono text-[0.65rem] leading-snug text-[var(--text-faint)]">
+              {row.sponsorFootnote}
+            </p>
+          ) : null}
         </div>
 
         {/* MOVEMENT */}

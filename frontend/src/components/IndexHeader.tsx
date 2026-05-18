@@ -12,6 +12,15 @@ import {
 
 interface IndexHeaderProps {
   issue: MethaneIndexIssue;
+  /** Ceremonial "powered by" — does not alter bulletin truth. */
+  poweredBy?: {
+    line: string;
+    disclosure?: string;
+    destinationUrl?: string;
+    placementId?: string;
+  };
+  /** When user follows optional partner outbound link. */
+  onPartnerLinkClick?: () => void;
 }
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -25,7 +34,7 @@ const EASE = [0.22, 0.61, 0.36, 1] as const;
  * line) and a small certification panel on the right (seal + filed-by
  * attribution + issued date).
  */
-export const IndexHeader: FC<IndexHeaderProps> = ({ issue }) => (
+export const IndexHeader: FC<IndexHeaderProps> = ({ issue, poweredBy, onPartnerLinkClick }) => (
   <motion.section
     initial={{ opacity: 0, y: 12 }}
     animate={{ opacity: 1, y: 0 }}
@@ -88,6 +97,29 @@ export const IndexHeader: FC<IndexHeaderProps> = ({ issue }) => (
           <RailRow label="DEPARTMENT" value={issue.department} />
           <RailRow label="CYCLE" value={issue.weekLabel} />
         </ul>
+        {poweredBy ? (
+          <div className="mt-4 border-t border-dashed border-[var(--border-stark)] pt-4">
+            <p className="font-mono text-[0.55rem] uppercase tracking-wide-3 text-[var(--text-faint)]">
+              CEREMONIAL PATRONAGE
+            </p>
+            <p className="mt-1 text-[0.8rem] leading-snug text-[var(--text-muted)]">{poweredBy.line}</p>
+            {poweredBy.disclosure ? (
+              <p className="mt-2 text-[0.65rem] leading-snug text-[var(--text-faint)]">{poweredBy.disclosure}</p>
+            ) : null}
+            {poweredBy.destinationUrl ? (
+              <a
+                href={poweredBy.destinationUrl}
+                className="mt-2 inline-block font-mono text-[0.6rem] uppercase tracking-wide-2 text-[var(--accent-teal)] underline-offset-2 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-placement-id={poweredBy.placementId}
+                onClick={() => onPartnerLinkClick?.()}
+              >
+                Partner site
+              </a>
+            ) : null}
+          </div>
+        ) : null}
       </aside>
     </div>
   </motion.section>

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { ChallengeCtaPanel } from '@/components/ChallengeCtaPanel';
 import { ChallengeNotice } from '@/components/ChallengeNotice';
@@ -15,6 +15,7 @@ import {
   type Challenge,
   type ChallengePerspective,
 } from '@/lib/challenge';
+import { fetchSponsorshipResolve } from '@/lib/sponsorship-api';
 
 interface ChallengeFlowClientProps {
   challenge: Challenge;
@@ -46,6 +47,33 @@ export function ChallengeFlowClient({
   perspective,
   hasValidParams,
 }: ChallengeFlowClientProps) {
+  const [sponsorChallenge, setSponsorChallenge] = useState<
+    { supportingLine?: string; placementId?: string } | undefined
+  >(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const placements = await fetchSponsorshipResolve(['sponsored_challenge']);
+      if (cancelled || !placements?.length) return;
+      const p = placements.find((x) => x.slotCode === 'sponsored_challenge');
+      if (!p) return;
+      const supportingLine =
+        typeof p.creative.supportingLine === 'string' ? p.creative.supportingLine : undefined;
+      setSponsorChallenge({ supportingLine, placementId: p.placementId });
+      if (supportingLine) {
+        void track('sponsored_challenge_opened', {
+          challengeId: challenge.challengeId,
+          variantId: challenge.sourceVariantId,
+          placementId: p.placementId,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [challenge.challengeId, challenge.sourceVariantId]);
+
   // Fire challenge_link_opened exactly once on mount. Strict-mode safe via
   // a ref guard.
   const openedRef = useRef(false);
@@ -92,7 +120,11 @@ export function ChallengeFlowClient({
       <div className="relative z-10 flex min-h-dvh flex-col">
         <Navbar />
 
-        <ChallengeNotice challenge={challenge} perspective={perspective} />
+        <ChallengeNotice
+          challenge={challenge}
+          perspective={perspective}
+          {...(sponsorChallenge ? { sponsorChallenge } : {})}
+        />
 
         {/* — Rival + CTA two-column — */}
         <motion.section

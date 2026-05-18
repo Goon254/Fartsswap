@@ -196,4 +196,59 @@ export class AppConfigService {
   get opsConsoleSecret(): string | undefined {
     return this.config.get('OPS_CONSOLE_SECRET', { infer: true });
   }
+
+  /** Effective secret for creator-tools routes (`x-creator-tools-key`). */
+  get creatorToolsEffectiveSecret(): string | undefined {
+    const dedicated = this.config.get('CREATOR_TOOLS_SECRET', { infer: true })?.trim();
+    if (dedicated && dedicated.length > 0) return dedicated;
+    return this.opsConsoleSecret;
+  }
+
+  get publicWebOrigin(): string | undefined {
+    const o = this.config.get('FARTS_PUBLIC_ORIGIN', { infer: true })?.trim();
+    return o && o.length > 0 ? o.replace(/\/+$/, '') : undefined;
+  }
+
+  get gallery(): { submissionsEnabled: boolean; publicFeedEnabled: boolean } {
+    return {
+      submissionsEnabled: this.config.get('GALLERY_SUBMISSIONS_ENABLED', { infer: true }),
+      publicFeedEnabled: this.config.get('GALLERY_PUBLIC_FEED_ENABLED', { infer: true }),
+    };
+  }
+
+  get podFulfillment(): { enabled: boolean; providerMode: 'mock' | 'disabled'; webhookSecret?: string } {
+    return {
+      enabled: this.config.get('POD_FULFILLMENT_ENABLED', { infer: true }),
+      providerMode: this.config.get('POD_PROVIDER_MODE', { infer: true }),
+      webhookSecret: this.config.get('POD_WEBHOOK_SECRET', { infer: true })?.trim() || undefined,
+    };
+  }
+
+  get creatorPlans(): { entitlementEnforcement: boolean } {
+    return {
+      entitlementEnforcement: this.config.get('CREATOR_ENTITLEMENT_ENFORCEMENT', { infer: true }),
+    };
+  }
+
+  get creatorCommunity(): {
+    label: string;
+    bulletinStyle: string;
+    tonePack: string;
+    enabledCommands: readonly string[];
+  } {
+    const raw = this.config.get('CREATOR_ENABLED_COMMANDS', { infer: true });
+    const enabled =
+      raw && raw.trim().length > 0
+        ? raw
+            .split(',')
+            .map((s) => s.trim().toLowerCase())
+            .filter(Boolean)
+        : ['classify', 'challenge', 'badge', 'methane-index', 'wrapped', 'share'];
+    return {
+      label: this.config.get('CREATOR_COMMUNITY_LABEL', { infer: true })?.trim() ?? 'Field Office · Unassigned',
+      bulletinStyle: this.config.get('CREATOR_BULLETIN_STYLE', { infer: true })?.trim() ?? 'standard_notice',
+      tonePack: this.config.get('CREATOR_TONE_PACK', { infer: true })?.trim() ?? 'bureau_standard',
+      enabledCommands: enabled,
+    };
+  }
 }

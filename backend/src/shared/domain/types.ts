@@ -71,4 +71,37 @@ export enum AnalyticsEventType {
   PDF_ARTIFACT_REQUESTED = 'pdf.artifact_requested',
   PDF_ARTIFACT_GENERATED = 'pdf.artifact_generated',
   PDF_ARTIFACT_FAILED = 'pdf.artifact_failed',
+  /** Artifact commerce funnel (server + aligned client catalog). */
+  PREMIUM_OFFER_VIEWED = 'premium.offer_viewed',
+  PREMIUM_THEME_SELECTED = 'premium.theme_selected',
+  CERTIFICATE_PREVIEWED = 'premium.certificate_previewed',
+  CHECKOUT_STARTED = 'premium.checkout_started',
+  CHECKOUT_COMPLETED = 'premium.checkout_completed',
+  ARTIFACT_FULFILLED = 'premium.artifact_fulfilled',
+  /** Native sponsorship (ceremonial inventory only). */
+  SPONSORED_INVENTORY_SERVED = 'sponsorship.inventory_served',
+  SPONSORED_INVENTORY_CLICKED = 'sponsorship.inventory_clicked',
+  SPONSORED_BADGE_ISSUED = 'sponsorship.badge_issued',
+  SPONSORED_CHALLENGE_OPENED = 'sponsorship.challenge_opened',
+  CAMPAIGN_PREVIEW_RENDERED = 'sponsorship.campaign_preview_rendered',
+  /** Opt-in public gallery pipeline (moderation + publication only — no social graph). */
+  GALLERY_SUBMISSION_CREATED = 'gallery_submission_created',
+  GALLERY_SUBMISSION_APPROVED = 'gallery_submission_approved',
+  GALLERY_SUBMISSION_REJECTED = 'gallery_submission_rejected',
+  GALLERY_REPORT_FILED = 'gallery_report_filed',
+  GALLERY_ITEM_REMOVED = 'gallery_item_removed',
+  GALLERY_ITEM_FEATURED = 'gallery_item_featured',
+  /** Print-on-demand handoff (no storefront; provider-agnostic). */
+  COMMERCE_ORDER_CREATED = 'commerce_order_created',
+  FULFILLMENT_SUBMITTED = 'fulfillment_submitted',
+  FULFILLMENT_FAILED = 'fulfillment_failed',
+  FULFILLMENT_SHIPPED = 'fulfillment_shipped',
+  MERCH_ASSET_PACKAGED = 'merch_asset_packaged',
+  /** Creator / community recurring plans (invite-only first). */
+  PLAN_ASSIGNED = 'plan_assigned',
+  ENTITLEMENT_CHECKED = 'entitlement_checked',
+  SUBSCRIPTION_STARTED = 'subscription_started',
+  SUBSCRIPTION_RENEWED = 'subscription_renewed',
+  SUBSCRIPTION_CANCELED = 'subscription_canceled',
+  GATED_FEATURE_USED = 'gated_feature_used',
 }

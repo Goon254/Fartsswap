@@ -126,6 +126,15 @@ export interface PremiumIntent {
   kind: string;
   payload?: Record<string, unknown>;
   createdAt: IsoDateTime;
+  lifecycleState?: string;
+  commerceThemeCode?: string;
+  productSku?: string;
+  amountCents?: number;
+  currency?: string;
+  checkoutExternalId?: string;
+  fulfillmentRef?: string;
+  fulfilledAt?: IsoDateTime;
+  updatedAt?: IsoDateTime;
 }
 
 export interface AnalyticsEvent {

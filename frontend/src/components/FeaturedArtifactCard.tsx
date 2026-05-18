@@ -84,6 +84,11 @@ export const FeaturedArtifactCard: FC<FeaturedArtifactCardProps> = ({ featured, 
             <blockquote className="mt-5 max-w-[52ch] border-l-2 border-[var(--accent-brass)] pl-4 text-[0.98rem] leading-relaxed text-[var(--text-default)]">
               {`\u201C${featured.caption}\u201D`}
             </blockquote>
+            {featured.sponsorProbableCauseLine ? (
+              <p className="mt-3 max-w-[52ch] font-mono text-[0.65rem] leading-snug text-[var(--text-faint)]">
+                {featured.sponsorProbableCauseLine}
+              </p>
+            ) : null}
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link

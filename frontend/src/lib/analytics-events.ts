@@ -110,6 +110,61 @@ export interface EventMap {
     targetSurface: Extract<AnalyticsSurface, 'analyze' | 'report'>;
   };
 
+  // — Native sponsorship (ceremonial inventory) —
+  sponsored_inventory_served: {
+    surface: 'methane_index' | 'challenge' | 'wrapped' | 'sponsor_lab';
+    slots: string[];
+    placementIds: string[];
+  };
+  sponsored_inventory_clicked: {
+    surface: 'methane_index' | 'wrapped' | 'challenge';
+    slotCode: string;
+    placementId: string;
+  };
+  sponsored_badge_issued: {
+    wrappedCycleId: string;
+    badgeId: string;
+    placementId: string;
+  };
+  sponsored_challenge_opened: {
+    challengeId: string;
+    variantId: string;
+    placementId: string;
+  };
+  campaign_preview_rendered: {
+    surface: 'sponsor_lab';
+    mode?: string;
+  };
+
+  sponsor_lab_view: Record<string, never>;
+
+  // — Public gallery readiness (server-originated events; client may mirror for lab previews) —
+  gallery_submission_created: {
+    reportId: string;
+    submissionId: string;
+    resubmission?: boolean;
+    screeningPipeline?: number;
+  };
+  gallery_submission_approved: { submissionId: string };
+  gallery_submission_rejected: { submissionId: string; reasonCode?: string };
+  gallery_report_filed: { submissionId: string; reasonCode: string };
+  gallery_item_removed: { submissionId: string; reasonCode?: string };
+  gallery_item_featured: { submissionId: string; featuredRank: number };
+  moderation_lab_view: Record<string, never>;
+
+  fulfillment_lab_view: Record<string, never>;
+  /** Internal plans + entitlements lab (operator-only). */
+  plans_lab_view: Record<string, never>;
+  commerce_order_created: {
+    intentId?: string;
+    fulfillmentOrderId?: string;
+    surface?: 'fulfillment_lab';
+  };
+  fulfillment_submitted: { fulfillmentOrderId?: string; providerOrderRef?: string };
+  fulfillment_failed: { fulfillmentOrderId?: string };
+  fulfillment_shipped: { fulfillmentOrderId?: string };
+  merch_asset_packaged: { intentId?: string; lineCount?: number };
+
   // — Premium upsell —
   /** Fires once per /premium page view. */
   premium_view: {
@@ -123,6 +178,8 @@ export interface EventMap {
     variantId: string;
     /** 0-indexed position in the offer grid. */
     position: number;
+    reportId?: string;
+    surface?: 'report' | 'wrapped' | 'creator';
   };
   /** Generic "the user clicked a premium-related CTA somewhere". */
   premium_cta_clicked: {
@@ -149,6 +206,22 @@ export interface EventMap {
   };
   /** Returns the user to /report from /premium. */
   premium_back_to_report_clicked: { variantId: string };
+
+  /** Bureau artifact-commerce: user locks a premium theme on a real report. */
+  premium_theme_selected: {
+    commerceThemeCode: string;
+    intentId?: string;
+    reportId: string;
+    surface: 'report' | 'wrapped' | 'creator';
+  };
+  certificate_previewed: {
+    intentId: string;
+    certificateKind: 'official_pdf' | 'wall_print';
+    reportId: string;
+  };
+  checkout_started: { intentId: string; reportId: string };
+  checkout_completed: { intentId: string; reportId: string };
+  artifact_fulfilled: { intentId: string; reportId: string };
 
   // — Launch / pre-launch shell —
   /** Fires once per launch-shell mount (on `/` when LAUNCH_MODE is on, or `/launch`). */
@@ -272,6 +345,19 @@ export interface EventMap {
     issueId: string;
     issueNumber: string;
   };
+  /** Fires when the bulletin is backed by persisted filings (live or low-volume). */
+  methane_index_realdata_view: {
+    issueId: string;
+    issueNumber: string;
+    provenance: 'live' | 'low_volume';
+    windowLabel?: string;
+  };
+  /** Fires when the backend selects a featured dossier for the weekly bulletin. */
+  featured_artifact_selected: {
+    issueId: string;
+    variantId: string;
+    reportId?: string;
+  };
   /** Fires when an operator opens the underlying dossier from a movers row. */
   classification_row_opened: {
     issueId: string;
@@ -303,6 +389,18 @@ export interface EventMap {
     wrappedCycleId: string;
     /** True if the page was rendered with seed-style overrides applied. */
     hasOverrides: boolean;
+  };
+  /** Fires when wrapped payload is query-backed (session or slug). */
+  wrapped_realdata_view: {
+    wrappedCycleId: string;
+    provenance: 'live' | 'low_volume';
+    source: 'session' | 'slug';
+  };
+  /** Fires when wrapped is compiled from session filings. */
+  wrapped_generated_from_session: {
+    wrappedCycleId: string;
+    reportCount: number;
+    cohortYear: number;
   };
   /** Fires when a story panel is interacted with (open dossier / hover). */
   wrapped_story_panel_viewed: {
@@ -339,6 +437,19 @@ export interface EventMap {
   ops_view: { hours: number };
   ops_window_changed: { fromHours: number; toHours: number };
   ops_variant_drilldown_opened: { variantKey: string };
+
+  // — Creator / Discord community tooling (server may also emit these) —
+  discord_command_invoked: {
+    command: string;
+    guildId?: string;
+    channelId?: string;
+  };
+  community_artifact_issued: { kind: string; templateId?: string; challengeId?: string };
+  ritual_bulletin_posted: { ritual: string; provenance?: string };
+  creator_tool_used: { tool: string };
+  badge_issued: { templateId: string; honoreeLine?: string };
+  /** Internal lab only — operator preview of Discord-style endpoints. */
+  creator_tools_lab_invoked: { command: string; ok: boolean; status?: number };
 
   // — Environment / one-shot —
   reduced_motion_detected: { value: boolean };

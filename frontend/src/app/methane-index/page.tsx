@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 /**
  * `/methane-index` — public bulletin.
  *
- * Server-side shell. All state and analytics live in `MethaneIndexClient`.
- * The route is statically prerendered; the bulletin is the same for
- * everyone for the duration of the issue.
+ * Server-side shell. `MethaneIndexClient` fetches the query-backed weekly
+ * envelope from `/api/rituals/methane-index/current` and falls back to the
+ * canonical mock issue when the ledger is empty.
  */
 export default function MethaneIndexRoute() {
   return <MethaneIndexClient />;

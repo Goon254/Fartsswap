@@ -11,22 +11,22 @@ export const metadata: Metadata = {
 /**
  * /report — the result experience.
  *
- * Reads an optional `?variant=<id>` search param so the analyze flow can land
- * the user on a specific dossier without coupling itself to component
- * internals. The Suspense boundary is required by Next 15 whenever a client
- * descendant calls `useSearchParams()`.
+ * Reads optional `?variant=<id>` and `?reportId=<uuid>` search params so flows
+ * with a persisted report can surface post-generation commerce without blocking
+ * the free dossier.
  */
 interface ReportPageProps {
-  searchParams?: Promise<{ variant?: string }>;
+  searchParams?: Promise<{ variant?: string; reportId?: string }>;
 }
 
 export default async function ReportPage({ searchParams }: ReportPageProps) {
   const params = (await searchParams) ?? {};
   const initialVariantId = typeof params.variant === 'string' ? params.variant : null;
+  const initialReportId = typeof params.reportId === 'string' ? params.reportId : null;
 
   return (
     <Suspense fallback={null}>
-      <ReportResultClient initialVariantId={initialVariantId} />
+      <ReportResultClient initialVariantId={initialVariantId} initialReportId={initialReportId} />
     </Suspense>
   );
 }

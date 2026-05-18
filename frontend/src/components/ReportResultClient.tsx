@@ -3,6 +3,7 @@
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArtifactCommerceUpsellStrip } from '@/components/ArtifactCommerceUpsellStrip';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { CaptionPanel } from '@/components/CaptionPanel';
 import { DiagnosticGrid } from '@/components/DiagnosticGrid';
@@ -26,10 +27,8 @@ import { applySeedOverridesToVariant, parseSeedPayload } from '@/lib/seed';
  * so the hero, grid, and captions cross-fade in unison and the key prop on
  * each block re-runs their internal stagger.
  *
- * No URL state in this milestone — the variant switcher is presented as an
- * explicit internal tool, not a public deep-link surface. URL-binding can
- * be added later via useSearchParams + Suspense without touching this
- * component's shape.
+ * No URL sync for the variant switcher (deliberate). `variant` and optional
+ * `reportId` query params are read for initial landing and commerce upsell.
  */
 interface ReportResultClientProps {
   /**
@@ -37,9 +36,17 @@ interface ReportResultClientProps {
    * Falls back to the first variant when missing / unknown.
    */
   initialVariantId?: string | null;
+  /**
+   * Optional persisted report id (`?reportId=`) — when present, shows the
+   * post-generation artifact-commerce strip without altering the free dossier.
+   */
+  initialReportId?: string | null;
 }
 
-export function ReportResultClient({ initialVariantId }: ReportResultClientProps = {}) {
+export function ReportResultClient({
+  initialVariantId,
+  initialReportId,
+}: ReportResultClientProps = {}) {
   // Resolve the initial id once. The variant switcher then drives subsequent
   // changes via local state; the URL is not kept in sync (deliberate — see
   // the milestone notes for the analyze flow).
@@ -52,6 +59,8 @@ export function ReportResultClient({ initialVariantId }: ReportResultClientProps
   // render. When absent, this is a no-op and the dossier renders as-is.
   const searchParams = useSearchParams();
   const seedPayload = useMemo(() => parseSeedPayload(searchParams), [searchParams]);
+  const reportIdFromQuery = searchParams.get('reportId');
+  const commerceReportId = initialReportId ?? reportIdFromQuery;
   const baseVariant = getVariant(activeId);
   const variant = useMemo(
     () => applySeedOverridesToVariant(baseVariant, seedPayload),
@@ -195,6 +204,14 @@ export function ReportResultClient({ initialVariantId }: ReportResultClientProps
           <AnimatePresence mode="wait" initial={false}>
             <CaptionPanel key={`captions-${variant.id}`} variant={variant} />
           </AnimatePresence>
+
+          {commerceReportId ? (
+            <ArtifactCommerceUpsellStrip
+              reportId={commerceReportId}
+              variantId={variant.id}
+              sourceSurface="report"
+            />
+          ) : null}
         </main>
 
         <FooterLoreStrip />

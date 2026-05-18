@@ -10,6 +10,11 @@ import { getVariantById } from '@/lib/result-variants';
 interface ChallengeNoticeProps {
   challenge: Challenge;
   perspective: ChallengePerspective;
+  /** Ceremonial sponsor line for the challenge surface (does not alter dispute rules). */
+  sponsorChallenge?: {
+    supportingLine?: string;
+    placementId?: string;
+  };
 }
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -29,7 +34,7 @@ const EASE = [0.22, 0.61, 0.36, 1] as const;
  * Both modes share a top warning rail with dispute chips, so the visual
  * language matches the rest of the lab.
  */
-export const ChallengeNotice: FC<ChallengeNoticeProps> = ({ challenge, perspective }) => {
+export const ChallengeNotice: FC<ChallengeNoticeProps> = ({ challenge, perspective, sponsorChallenge }) => {
   const variant = getVariantById(challenge.sourceVariantId);
   const threshold = thresholdToBeat(challenge);
   const isSender = perspective === 'sender';
@@ -56,6 +61,12 @@ export const ChallengeNotice: FC<ChallengeNoticeProps> = ({ challenge, perspecti
           <Chip tone="brass">DOCKET · DKT-{shortId(challenge.challengeId)}</Chip>
         </div>
       </div>
+
+      {sponsorChallenge?.supportingLine ? (
+        <p className="mt-3 max-w-[80ch] rounded-md border border-dashed border-[var(--border-brass)] bg-[color-mix(in_oklab,var(--accent-brass)_4%,transparent)] px-4 py-2 font-mono text-[0.65rem] leading-snug text-[var(--text-muted)]">
+          {sponsorChallenge.supportingLine}
+        </p>
+      ) : null}
 
       {/* — Title block — */}
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr] lg:gap-12">

@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 /**
  * `/fart-wrapped` — annual ceremonial review.
  *
- * Server-side shell. All state, analytics, and seed-payload parsing live
- * in `FartWrappedClient`. Suspense boundary is required because the
- * orchestrator calls `useSearchParams()` to honour the seed-style
- * subject overrides.
+ * Server-side shell. `FartWrappedClient` fetches query-backed wrapped data
+ * (session cookie, or `?slug=<public_report_slug>`), applies optional seed
+ * overrides, and emits typed analytics. Suspense is required for
+ * `useSearchParams()`.
  */
 export default function FartWrappedRoute() {
   return (

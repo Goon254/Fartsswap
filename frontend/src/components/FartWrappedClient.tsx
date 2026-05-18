@@ -1,12 +1,14 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, type FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
+import { ArtifactCommerceUpsellStrip } from '@/components/ArtifactCommerceUpsellStrip';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { BadgeCabinet } from '@/components/BadgeCabinet';
 import { ClosingNotice } from '@/components/ClosingNotice';
 import { FooterLoreStrip } from '@/components/FooterLoreStrip';
 import { Navbar } from '@/components/Navbar';
+import { RitualProvenanceStrip } from '@/components/RitualProvenanceStrip';
 import { WrappedHeader } from '@/components/WrappedHeader';
 import { WrappedHeroCard } from '@/components/WrappedHeroCard';
 import { WrappedSharePoster } from '@/components/WrappedSharePoster';
@@ -20,45 +22,62 @@ import {
   type WrappedStoryPanel as WrappedStoryPanelData,
 } from '@/lib/fart-wrapped';
 import { parseSeedPayload } from '@/lib/seed';
+import { fetchWrappedBySlug, fetchWrappedCurrent, type WrappedEnvelope } from '@/lib/rituals-api';
 
 /**
  * /fart-wrapped orchestrator.
  *
  * Resolves the displayed issue by:
- *   1. Starting from the canonical `CURRENT_WRAPPED` mock issue.
- *   2. Applying optional seed-style overrides from the URL via
- *      `parseSeedPayload`. The same `s_*` namespace used by /seed is
- *      reused here so operators can issue a "Fart Wrapped for X" link
- *      with the same generator — no new param scheme.
- *
- * Owned analytics:
- *   `fart_wrapped_view`              once on mount
- *   `wrapped_story_panel_viewed`     per story panel (open / hover)
- *   `wrapped_classification_opened`  per breakdown row open
- *   `wrapped_badge_interacted`       per honour interaction
- *   `wrapped_share_opened`           on "Save annual share card"
- *   `wrapped_poster_copied`          on each Copy press
+ *   1. Fetching query-backed wrapped from the API (session cookie, or `?slug=`).
+ *   2. Falling back to `CURRENT_WRAPPED` when the API returns no issue.
+ *   3. Applying optional seed-style overrides from `parseSeedPayload`.
  */
 export const FartWrappedClient: FC = () => {
-  // Apply seed-style overrides. Only `targetLabel`, `powerScore`, and
-  // `threatLevel` are relevant for the Wrapped issue; the rest of the
-  // payload (caption / platform / variant) doesn't change a personal
-  // cycle summary.
   const searchParams = useSearchParams();
+  const slug = searchParams.get('slug');
   const seedPayload = useMemo(() => parseSeedPayload(searchParams), [searchParams]);
 
+  const [envelope, setEnvelope] = useState<WrappedEnvelope | undefined>(undefined);
+  const [fetchFailed, setFetchFailed] = useState(false);
+  const viewed = useRef(false);
+  const realDataTracked = useRef(false);
+
+  useEffect(() => {
+    setEnvelope(undefined);
+    setFetchFailed(false);
+    viewed.current = false;
+    realDataTracked.current = false;
+  }, [slug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = slug ? await fetchWrappedBySlug(slug) : await fetchWrappedCurrent();
+        if (cancelled) return;
+        if (data === null) setFetchFailed(true);
+        else setEnvelope(data);
+      } catch {
+        if (!cancelled) setFetchFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  const baseIssue: WrappedIssue = envelope?.issue ?? CURRENT_WRAPPED;
+  const provenance = envelope?.provenance ?? 'canonical_fallback';
+
   const issue: WrappedIssue = useMemo(() => {
-    if (!seedPayload) return CURRENT_WRAPPED;
+    if (!seedPayload) return baseIssue;
+    let next: WrappedIssue = baseIssue;
     let mutated = false;
-    let next: WrappedIssue = CURRENT_WRAPPED;
     if (seedPayload.targetLabel && seedPayload.targetLabel !== next.subjectLabel) {
       next = { ...next, subjectLabel: seedPayload.targetLabel };
       mutated = true;
     }
-    if (
-      typeof seedPayload.powerScore === 'number' &&
-      seedPayload.powerScore !== next.averagePowerScore
-    ) {
+    if (typeof seedPayload.powerScore === 'number' && seedPayload.powerScore !== next.averagePowerScore) {
       next = { ...next, averagePowerScore: seedPayload.powerScore };
       mutated = true;
     }
@@ -67,27 +86,51 @@ export const FartWrappedClient: FC = () => {
       mutated = true;
     }
     return mutated ? next : next;
-  }, [seedPayload]);
+  }, [baseIssue, seedPayload]);
 
-  const hasOverrides = issue !== CURRENT_WRAPPED;
+  const hasSeedOverrides = useMemo(() => {
+    if (!seedPayload) return false;
+    return (
+      Boolean(seedPayload.targetLabel && seedPayload.targetLabel !== baseIssue.subjectLabel) ||
+      (typeof seedPayload.powerScore === 'number' && seedPayload.powerScore !== baseIssue.averagePowerScore) ||
+      Boolean(seedPayload.threatLevel && seedPayload.threatLevel !== baseIssue.dominantThreatLevel)
+    );
+  }, [seedPayload, baseIssue]);
 
-  // — Page view —
-  const viewed = useRef(false);
   useEffect(() => {
     if (viewed.current) return;
+    if (envelope === undefined && !fetchFailed) return;
     viewed.current = true;
     pageView('fart_wrapped_view', {
       wrappedCycleId: issue.wrappedCycleId,
-      hasOverrides,
+      hasOverrides: hasSeedOverrides,
     });
-  }, [issue.wrappedCycleId, hasOverrides]);
+  }, [issue.wrappedCycleId, hasSeedOverrides, envelope, fetchFailed]);
 
-  // — Story panel events. Open fires when the dossier link is clicked;
-  //   hover fires once per panel per session so we don't spam. —
+  useEffect(() => {
+    if (realDataTracked.current || !envelope?.issue) return;
+    if (envelope.provenance !== 'live' && envelope.provenance !== 'low_volume') return;
+    realDataTracked.current = true;
+    const source = slug ? 'slug' : 'session';
+    void track('wrapped_realdata_view', {
+      wrappedCycleId: envelope.issue.wrappedCycleId,
+      provenance: envelope.provenance,
+      source,
+    });
+    if (source === 'session') {
+      const reportCount = envelope.issue.classificationBreakdown.reduce((a, r) => a + r.count, 0);
+      void track('wrapped_generated_from_session', {
+        wrappedCycleId: envelope.issue.wrappedCycleId,
+        reportCount,
+        cohortYear: envelope.cohortYear,
+      });
+    }
+  }, [envelope, slug]);
+
   const hoveredPanels = useRef<Set<string>>(new Set());
   const onStoryOpen = useCallback(
     (panel: WrappedStoryPanelData) => {
-      track('wrapped_story_panel_viewed', {
+      void track('wrapped_story_panel_viewed', {
         wrappedCycleId: issue.wrappedCycleId,
         panelId: panel.id,
         variantId: panel.variantId,
@@ -100,7 +143,7 @@ export const FartWrappedClient: FC = () => {
     (panel: WrappedStoryPanelData) => {
       if (hoveredPanels.current.has(panel.id)) return;
       hoveredPanels.current.add(panel.id);
-      track('wrapped_story_panel_viewed', {
+      void track('wrapped_story_panel_viewed', {
         wrappedCycleId: issue.wrappedCycleId,
         panelId: panel.id,
         variantId: panel.variantId,
@@ -112,7 +155,7 @@ export const FartWrappedClient: FC = () => {
 
   const onClassificationOpened = useCallback(
     (row: ClassificationBreakdownRow) => {
-      track('wrapped_classification_opened', {
+      void track('wrapped_classification_opened', {
         wrappedCycleId: issue.wrappedCycleId,
         classification: row.classification,
         variantId: row.variantId,
@@ -123,18 +166,25 @@ export const FartWrappedClient: FC = () => {
 
   const onBadgeInteract = useCallback(
     (badge: WrappedBadge, kind: 'click' | 'hover') => {
-      track('wrapped_badge_interacted', {
+      void track('wrapped_badge_interacted', {
         wrappedCycleId: issue.wrappedCycleId,
         badgeId: badge.id,
         kind,
       });
+      if (kind === 'click' && badge.sponsorPlacementId) {
+        void track('sponsored_badge_issued', {
+          wrappedCycleId: issue.wrappedCycleId,
+          badgeId: badge.id,
+          placementId: badge.sponsorPlacementId,
+        });
+      }
     },
     [issue.wrappedCycleId],
   );
 
   const onShareOpened = useCallback(
     (variantId: string) => {
-      track('wrapped_share_opened', {
+      void track('wrapped_share_opened', {
         wrappedCycleId: issue.wrappedCycleId,
         variantId,
       });
@@ -144,13 +194,23 @@ export const FartWrappedClient: FC = () => {
 
   const onPosterCopied = useCallback(
     (kind: 'summary' | 'closing') => {
-      track('wrapped_poster_copied', {
+      void track('wrapped_poster_copied', {
         wrappedCycleId: issue.wrappedCycleId,
         kind,
       });
     },
     [issue.wrappedCycleId],
   );
+
+  const commerceReportId =
+    envelope?.issue &&
+    (envelope.provenance === 'live' || envelope.provenance === 'low_volume') &&
+    typeof envelope.issue.featuredReportId === 'string' &&
+    envelope.issue.featuredReportId.length > 0
+      ? envelope.issue.featuredReportId
+      : null;
+
+  const showStrip = fetchFailed || envelope !== undefined;
 
   return (
     <>
@@ -160,10 +220,22 @@ export const FartWrappedClient: FC = () => {
         <Navbar />
 
         <main className="flex flex-1 flex-col gap-14 pb-4 lg:gap-20 lg:pb-6">
+          {showStrip ? (
+            <div className="pt-4">
+              <RitualProvenanceStrip surface="wrapped" provenance={provenance} fetchFailed={fetchFailed} />
+            </div>
+          ) : null}
           <WrappedHeader issue={issue} />
           <WrappedHeroCard issue={issue} onClassificationOpened={onClassificationOpened} />
 
-          {/* — Story panels — */}
+          {commerceReportId ? (
+            <ArtifactCommerceUpsellStrip
+              reportId={commerceReportId}
+              variantId={issue.primaryVariantId}
+              sourceSurface="wrapped"
+            />
+          ) : null}
+
           <section className="mx-auto w-full max-w-7xl px-6 lg:px-10">
             <header className="mb-6 flex flex-wrap items-center gap-3 font-mono text-[0.65rem] uppercase tracking-wide-3 text-[var(--accent-brass)]">
               <span aria-hidden="true" className="brand-rule h-px w-8 opacity-90" />
@@ -191,11 +263,7 @@ export const FartWrappedClient: FC = () => {
           </section>
 
           <BadgeCabinet badges={issue.badges} onInteract={onBadgeInteract} />
-          <WrappedSharePoster
-            issue={issue}
-            onShareOpened={onShareOpened}
-            onPosterCopied={onPosterCopied}
-          />
+          <WrappedSharePoster issue={issue} onShareOpened={onShareOpened} onPosterCopied={onPosterCopied} />
           <ClosingNotice issue={issue} />
         </main>
 

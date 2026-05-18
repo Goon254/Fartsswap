@@ -20,6 +20,33 @@ export class PremiumIntentResponseDto {
   @ApiProperty()
   createdAt!: string;
 
+  @ApiPropertyOptional()
+  lifecycleState?: string;
+
+  @ApiPropertyOptional()
+  commerceThemeCode?: string;
+
+  @ApiPropertyOptional()
+  productSku?: string;
+
+  @ApiPropertyOptional()
+  amountCents?: number;
+
+  @ApiPropertyOptional()
+  currency?: string;
+
+  @ApiPropertyOptional()
+  checkoutExternalId?: string;
+
+  @ApiPropertyOptional()
+  fulfillmentRef?: string;
+
+  @ApiPropertyOptional()
+  fulfilledAt?: string;
+
+  @ApiPropertyOptional()
+  updatedAt?: string;
+
   static fromDomain(intent: PremiumIntent): PremiumIntentResponseDto {
     const dto = new PremiumIntentResponseDto();
     Object.assign(dto, intent);

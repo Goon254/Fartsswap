@@ -60,6 +60,9 @@ export interface ClassificationRow {
   note: string;
   /** Optional warning ribbon (e.g. NEW · DEBUT). */
   warning?: string;
+  /** Ceremonial sponsor footnote — does not change index math. */
+  sponsorFootnote?: string;
+  sponsorPlacementId?: string;
 }
 
 export interface BureauCommentaryLine {
@@ -82,10 +85,17 @@ export interface FeaturedArtifact {
   caption: string;
   /** Mock hash to display under the artifact. */
   reportHash: string;
+  /** When present, dossier was selected from a persisted report row. */
+  reportId?: string;
+  /** Public slug for deep links when backend supplies it. */
+  publicSlug?: string;
   /** The Bureau's framing eyebrow ("TODAY'S BUREAU SELECTION", etc.). */
   honorific: string;
   /** Threat level shown on the artifact chip. */
   threatLevel: ThreatLevel;
+  /** Ceremonial probable-cause sponsor line (adjacent copy only). */
+  sponsorProbableCauseLine?: string;
+  sponsorProbableCausePlacementId?: string;
 }
 
 export interface RitualTeaserItem {

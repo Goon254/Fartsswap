@@ -15,5 +15,6 @@ import { SharesController } from './interface/http/shares.controller';
   ],
   controllers: [SharesController],
   providers: [CreateShareLinkUseCase],
+  exports: [CreateShareLinkUseCase],
 })
 export class SharesModule {}

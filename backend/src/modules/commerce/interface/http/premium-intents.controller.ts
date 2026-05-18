@@ -41,6 +41,11 @@ export class PremiumIntentsController {
       reportId: body.reportId,
       kind: body.kind,
       payload: body.payload,
+      ...(body.lifecycleState !== undefined ? { lifecycleState: body.lifecycleState } : {}),
+      ...(body.commerceThemeCode !== undefined ? { commerceThemeCode: body.commerceThemeCode } : {}),
+      ...(body.productSku !== undefined ? { productSku: body.productSku } : {}),
+      ...(body.amountCents !== undefined ? { amountCents: body.amountCents } : {}),
+      ...(body.currency !== undefined ? { currency: body.currency } : {}),
     });
     return PremiumIntentResponseDto.fromDomain(intent);
   }

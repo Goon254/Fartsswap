@@ -31,6 +31,8 @@ export interface WrappedBadge {
   /** Mock rarity statement; lands as a small footnote on the card. */
   rarity: string;
   tone: WrappedBadgeTone;
+  sponsorRibbonAppend?: string;
+  sponsorPlacementId?: string;
 }
 
 export interface WrappedStoryPanel {
@@ -109,6 +111,8 @@ export interface WrappedIssue {
   classificationBreakdown: readonly ClassificationBreakdownRow[];
   notableMoments: readonly NotableMoment[];
   badges: readonly WrappedBadge[];
+  /** Peak report in the cycle — used for post-ritual commerce anchors. */
+  featuredReportId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -317,4 +321,5 @@ export const CURRENT_WRAPPED: WrappedIssue = {
       tone: 'cerulean',
     },
   ],
+  featuredReportId: '00000000-0000-4000-8000-000000000001',
 };

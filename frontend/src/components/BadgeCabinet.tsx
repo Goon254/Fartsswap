@@ -84,7 +84,12 @@ export const BadgeCabinet: FC<BadgeCabinetProps> = ({ badges, onInteract }) => {
                 {badge.title}
               </h3>
 
-              <Chip tone={badgeChipTone(badge.tone)}>{badge.ribbon}</Chip>
+              <Chip tone={badgeChipTone(badge.tone)}>
+                {badge.ribbon}
+                {badge.sponsorRibbonAppend ? (
+                  <span className="text-[var(--text-faint)]"> · {badge.sponsorRibbonAppend}</span>
+                ) : null}
+              </Chip>
 
               <p className="text-[0.88rem] leading-snug text-[var(--text-default)]">{badge.body}</p>
 
