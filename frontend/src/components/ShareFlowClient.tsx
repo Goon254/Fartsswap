@@ -1,6 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { Chip } from '@/components/Chip';
@@ -18,6 +19,7 @@ import {
   getVariantById,
   RESULT_VARIANTS,
 } from '@/lib/result-variants';
+import { applySeedOverridesToVariant, parseSeedPayload } from '@/lib/seed';
 
 interface ShareFlowClientProps {
   initialVariantId?: string | null;
@@ -45,7 +47,18 @@ export function ShareFlowClient({ initialVariantId }: ShareFlowClientProps = {})
   const [activeId, setActiveId] = useState<string>(
     () => getVariantById(initialVariantId).id || RESULT_VARIANTS[0]?.id || 'silent_assassin',
   );
-  const variant = getVariantById(activeId);
+
+  // Seed overrides ride the URL (see lib/seed.ts). When present they
+  // replace `subjectTitle`, `powerScore`, `threatLevel`, and the
+  // featured caption before the card is composed; the exported PNG
+  // therefore reflects the operator's overrides exactly.
+  const searchParams = useSearchParams();
+  const seedPayload = useMemo(() => parseSeedPayload(searchParams), [searchParams]);
+  const baseVariant = getVariantById(activeId);
+  const variant = useMemo(
+    () => applySeedOverridesToVariant(baseVariant, seedPayload),
+    [baseVariant, seedPayload],
+  );
 
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [scale, setScale] = useState<number>(0.34);

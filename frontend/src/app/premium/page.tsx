@@ -3,6 +3,7 @@ import { Suspense } from 'react';
 import { PremiumFlowClient } from '@/components/PremiumFlowClient';
 import { parsePremiumSource } from '@/lib/premium';
 import { getVariantById } from '@/lib/result-variants';
+import { applySeedOverridesToVariant, parseSeedPayload } from '@/lib/seed';
 
 export const metadata: Metadata = {
   title: 'Bureau Certification Services',
@@ -17,19 +18,33 @@ export const metadata: Metadata = {
  * for analytics attribution. Both fall back gracefully: unknown variant
  * ids resolve to the first registered variant (so the page never blanks);
  * unknown source values become `direct`.
+ *
+ * Honours seed overrides (`?s_target=…&s_score=…`) when present, so
+ * certificate previews carry the operator-chosen target name and score.
  */
 interface PremiumPageProps {
-  searchParams?: Promise<{ variant?: string; source?: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function PremiumPage({ searchParams }: PremiumPageProps) {
   const params = (await searchParams) ?? {};
-  const variant = getVariantById(typeof params.variant === 'string' ? params.variant : null);
-  const source = parsePremiumSource(typeof params.source === 'string' ? params.source : null);
+  const variantParam = pickString(params.variant);
+  const sourceParam = pickString(params.source);
+
+  const baseVariant = getVariantById(variantParam);
+  const seedPayload = parseSeedPayload(params);
+  const variant = applySeedOverridesToVariant(baseVariant, seedPayload);
+  const source = parsePremiumSource(sourceParam);
 
   return (
     <Suspense fallback={null}>
       <PremiumFlowClient variant={variant} source={source} />
     </Suspense>
   );
+}
+
+function pickString(v: string | string[] | undefined): string | null {
+  if (typeof v === 'string') return v;
+  if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+  return null;
 }

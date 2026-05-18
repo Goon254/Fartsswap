@@ -201,6 +201,102 @@ export interface EventMap {
     releaseStatus: string;
   };
 
+  // — Press / embargo kit —
+  /** Fires once per /press page view. */
+  press_view: Record<string, never>;
+  /** Fires when a press exhibit is opened (live link) or its reference is copied. */
+  press_asset_opened: {
+    assetId: string;
+    assetType: 'dossier' | 'share_card' | 'challenge_notice' | 'premium_certificate';
+    method: 'click' | 'copy_ref';
+  };
+  /** Fires when a boilerplate quote is copied to the clipboard. */
+  press_quote_copied: {
+    quoteId: string;
+    role: string;
+  };
+  /** Fires for hover / copy interactions on the media fact sheet. */
+  press_fact_sheet_interacted: {
+    factId: string;
+    kind: 'hover' | 'copy';
+  };
+  /** Fires when any of the press contact CTAs is clicked. */
+  press_contact_clicked: {
+    contactType: 'press_desk' | 'media_email' | 'media_phone' | 'archive_request';
+  };
+  /** Fires once per /press page view when the embargo notice is rendered. */
+  embargo_notice_viewed: {
+    embargoIso: string;
+    docket: string;
+  };
+
+  // — Creator seeding tool —
+  /** Fires once per /seed page view. */
+  seed_tool_view: Record<string, never>;
+  /** Fires when the operator changes target name, type, or platform. */
+  seed_target_configured: {
+    targetType: 'creator' | 'brand' | 'meme_account' | 'custom';
+    hasLabel: boolean;
+    platform: 'none' | 'tiktok' | 'x' | 'instagram' | 'reddit' | 'discord';
+  };
+  /** Fires when the operator tunes a variant-level override. */
+  seed_variant_adjusted: {
+    variantId: string;
+    field: 'classification' | 'score' | 'threat' | 'caption';
+  };
+  /** Fires when the operator toggles an output surface on. */
+  seed_output_selected: {
+    surface: 'report' | 'share' | 'challenge' | 'premium';
+    enabled: boolean;
+  };
+  /** Fires whenever a seed link is freshly composed (debounced upstream). */
+  seed_link_generated: {
+    surface: 'report' | 'share' | 'challenge' | 'premium';
+    variantId: string;
+    hasOverrides: boolean;
+  };
+  /** Fires when the operator copies a generated URL or pitch caption. */
+  seed_link_copied: {
+    surface: 'report' | 'share' | 'challenge' | 'premium';
+    kind: 'url' | 'pitch';
+  };
+  /** Fires when the operator opens the seed preview (live link). */
+  seed_preview_opened: {
+    surface: 'report' | 'share' | 'challenge' | 'premium';
+    variantId: string;
+  };
+
+  // — National Methane Index / public bulletin —
+  /** Fires once per /methane-index page view. */
+  methane_index_view: {
+    issueId: string;
+    issueNumber: string;
+  };
+  /** Fires when an operator opens the underlying dossier from a movers row. */
+  classification_row_opened: {
+    issueId: string;
+    classificationId: string;
+    rank: number;
+    variantId: string;
+  };
+  /** Fires when the featured artifact is opened (dossier or share). */
+  featured_artifact_opened: {
+    issueId: string;
+    variantId: string;
+    surface: 'report' | 'share';
+  };
+  /** Fires when a ritual teaser is clicked. */
+  ritual_teaser_interacted: {
+    issueId: string;
+    ritualId: string;
+    kind: 'click' | 'hover';
+  };
+  /** Fires once when the commentary block is rendered. */
+  commentary_section_viewed: {
+    issueId: string;
+    lineCount: number;
+  };
+
   // — Environment / one-shot —
   reduced_motion_detected: { value: boolean };
   theme_toggled: { from: AnalyticsTheme; to: AnalyticsTheme };

@@ -1,6 +1,7 @@
 'use client';
 
 import { AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { CaptionPanel } from '@/components/CaptionPanel';
@@ -15,6 +16,7 @@ import { pageView, track } from '@/lib/analytics';
 import { createChallenge, createChallengeLink } from '@/lib/challenge';
 import { premiumLinkFor } from '@/lib/premium';
 import { getVariant, getVariantById, RESULT_VARIANTS } from '@/lib/result-variants';
+import { applySeedOverridesToVariant, parseSeedPayload } from '@/lib/seed';
 
 /**
  * Client orchestrator for the /report route.
@@ -44,7 +46,17 @@ export function ReportResultClient({ initialVariantId }: ReportResultClientProps
   const [activeId, setActiveId] = useState<string>(
     () => getVariantById(initialVariantId).id || RESULT_VARIANTS[0]?.id || 'silent_assassin',
   );
-  const variant = getVariant(activeId);
+
+  // Seed overrides ride the URL (`?s_target=…&s_score=…`). When present
+  // they replace the matching variant fields *before* downstream blocks
+  // render. When absent, this is a no-op and the dossier renders as-is.
+  const searchParams = useSearchParams();
+  const seedPayload = useMemo(() => parseSeedPayload(searchParams), [searchParams]);
+  const baseVariant = getVariant(activeId);
+  const variant = useMemo(
+    () => applySeedOverridesToVariant(baseVariant, seedPayload),
+    [baseVariant, seedPayload],
+  );
 
   // Page-view fires once on mount with whichever variant we landed on.
   const viewedRef = useRef(false);
