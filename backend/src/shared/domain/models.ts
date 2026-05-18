@@ -1,12 +1,4 @@
-import type {
-  AnalyticsEventType,
-  ArtifactStatus,
-  ArtifactType,
-  AudioStatus,
-  EntitlementType,
-  ReportSource,
-  ReportStatus,
-} from './types';
+import type { ArtifactStatus, ArtifactType, AudioStatus, EntitlementType, ReportSource, ReportStatus } from './types';
 import type { EntityId, IsoDateTime } from './types';
 
 export interface AnonymousSession {
@@ -46,6 +38,11 @@ export interface AudioUpload {
 export interface Report {
   id: EntityId;
   sessionId?: EntityId;
+  /** Short public token for share URLs (distinct from internal UUID). */
+  publicSlug?: string;
+  /** Client / bureau variant id when the dossier maps to a known catalog entry. */
+  variantId?: string;
+  platformMetadata?: Record<string, unknown>;
   status: ReportStatus;
   source: ReportSource;
   fartName: string;
@@ -82,19 +79,66 @@ export interface ReportArtifact {
 export interface ShareLink {
   id: EntityId;
   reportId: EntityId;
+  sessionId?: EntityId;
   token: string;
   expiresAt?: IsoDateTime;
   createdAt: IsoDateTime;
   revokedAt?: IsoDateTime;
 }
 
+export interface ShareEvent {
+  id: EntityId;
+  sessionId?: EntityId;
+  reportId?: EntityId;
+  shareLinkId?: EntityId;
+  kind: string;
+  payload?: Record<string, unknown>;
+  createdAt: IsoDateTime;
+}
+
+export interface ChallengeLink {
+  id: string;
+  sessionId?: EntityId;
+  reportId?: EntityId;
+  variantId: string;
+  sourceScore: number;
+  challengeType: string;
+  sourceSurface: string;
+  issuedAt: IsoDateTime;
+  resolvedAt?: IsoDateTime;
+  metadata?: Record<string, unknown>;
+  createdAt: IsoDateTime;
+}
+
+export interface ChallengeEvent {
+  id: EntityId;
+  challengeLinkId: string;
+  sessionId?: EntityId;
+  kind: string;
+  payload?: Record<string, unknown>;
+  createdAt: IsoDateTime;
+}
+
+export interface PremiumIntent {
+  id: EntityId;
+  sessionId?: EntityId;
+  reportId?: EntityId;
+  kind: string;
+  payload?: Record<string, unknown>;
+  createdAt: IsoDateTime;
+}
+
 export interface AnalyticsEvent {
   id: EntityId;
   sessionId?: EntityId;
   reportId?: EntityId;
-  eventType: AnalyticsEventType;
+  /** Server enum values (`report.generated`) or client catalog (`report_view`). */
+  eventType: string;
   payload?: Record<string, unknown>;
   createdAt: IsoDateTime;
+  /** When set, duplicate ingests with the same id are ignored (client-generated UUID). */
+  clientEventId?: EntityId;
+  ingestSource?: 'server' | 'client';
 }
 
 export interface Entitlement {

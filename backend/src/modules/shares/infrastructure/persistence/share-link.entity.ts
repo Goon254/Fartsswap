@@ -8,6 +8,9 @@ export class ShareLinkEntity {
   @Column({ name: 'report_id', type: 'uuid' })
   reportId!: string;
 
+  @Column({ name: 'session_id', type: 'uuid', nullable: true })
+  sessionId?: string;
+
   @Column({ length: 64, unique: true })
   token!: string;
 

@@ -13,7 +13,6 @@ import { GetArtifactUseCase } from './application/get-artifact.use-case';
 import { ListReportArtifactsUseCase } from './application/list-report-artifacts.use-case';
 import { ShareCardArtifactGenerator } from './application/share-card-artifact.generator';
 import { ReportArtifactEntity } from './infrastructure/persistence/report-artifact.entity';
-import { ShareLinkEntity } from './infrastructure/persistence/share-link.entity';
 import { TypeOrmReportArtifactRepository } from './infrastructure/persistence/typeorm-report-artifact.repository';
 import { HtmlShareCardRendererAdapter } from './infrastructure/rendering/html-share-card-renderer.adapter';
 import { ArtifactsController } from './interface/http/artifacts.controller';
@@ -21,7 +20,7 @@ import { ReportArtifactsController } from './interface/http/report-artifacts.con
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ReportArtifactEntity, ShareLinkEntity]),
+    TypeOrmModule.forFeature([ReportArtifactEntity]),
     ReportsModule,
     IdentityModule,
     AnalyticsModule,

@@ -8,6 +8,15 @@ export class ReportEntity {
   @Column({ name: 'session_id', type: 'uuid', nullable: true })
   sessionId?: string;
 
+  @Column({ name: 'public_slug', length: 32, nullable: true, unique: true })
+  publicSlug?: string;
+
+  @Column({ name: 'variant_id', length: 128, nullable: true })
+  variantId?: string;
+
+  @Column({ name: 'platform_metadata', type: 'jsonb', nullable: true })
+  platformMetadata?: Record<string, unknown>;
+
   @Column({ length: 32 })
   status!: string;
 

@@ -41,6 +41,8 @@ export interface AnalyticsRecord<E extends EventName = EventName> {
   /** Epoch ms. */
   timestamp: number;
   iso: string;
+  /** Client-generated UUID for idempotent server ingest (optional for older clients). */
+  eventId?: string;
 }
 
 /**
@@ -115,12 +117,17 @@ function isBrowser(): boolean {
 function emit<E extends EventName>(name: E, payload: PayloadFor<E>): void {
   const ctx = buildContext();
   const now = Date.now();
+  const eventId =
+    typeof window !== 'undefined' && typeof window.crypto?.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : undefined;
   const record: AnalyticsRecord<E> = {
     name,
     payload,
     context: ctx,
     timestamp: now,
     iso: new Date(now).toISOString(),
+    ...(eventId !== undefined ? { eventId } : {}),
   };
 
   pushBuffer(record);

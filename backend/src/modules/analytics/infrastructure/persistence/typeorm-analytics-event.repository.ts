@@ -19,6 +19,8 @@ export class TypeOrmAnalyticsEventRepository implements AnalyticsEventRepository
     entity.reportId = event.reportId;
     entity.eventType = event.eventType;
     entity.payload = event.payload;
+    entity.clientEventId = event.clientEventId;
+    entity.ingestSource = event.ingestSource ?? 'server';
     entity.createdAt = new Date(event.createdAt);
     await this.repo.save(entity);
   }

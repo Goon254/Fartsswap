@@ -37,6 +37,7 @@ function build(opts?: { reportOverride?: Report | null; existing?: ReportArtifac
     findReportById: jest
       .fn()
       .mockResolvedValue(opts?.reportOverride === undefined ? report : opts.reportOverride),
+    findReportByPublicSlug: jest.fn(),
   } as unknown as jest.Mocked<ReportRepository>;
 
   const saved: ReportArtifact[] = [];

@@ -45,6 +45,7 @@ describe('GenerateShareCardArtifactUseCase', () => {
         createdAt: fixedNow.toISOString(),
         updatedAt: fixedNow.toISOString(),
       }),
+      findReportByPublicSlug: jest.fn(),
     };
     artifacts = {
       save: jest.fn().mockResolvedValue(undefined),

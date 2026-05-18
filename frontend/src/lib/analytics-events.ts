@@ -297,6 +297,49 @@ export interface EventMap {
     lineCount: number;
   };
 
+  // — Fart Wrapped (annual review ritual) —
+  /** Fires once per /fart-wrapped page view. */
+  fart_wrapped_view: {
+    wrappedCycleId: string;
+    /** True if the page was rendered with seed-style overrides applied. */
+    hasOverrides: boolean;
+  };
+  /** Fires when a story panel is interacted with (open dossier / hover). */
+  wrapped_story_panel_viewed: {
+    wrappedCycleId: string;
+    panelId: string;
+    /** Optional underlying dossier the panel references. */
+    variantId?: string;
+    kind: 'open' | 'hover';
+  };
+  /** Fires when one of the distinction badges is interacted with. */
+  wrapped_badge_interacted: {
+    wrappedCycleId: string;
+    badgeId: string;
+    kind: 'click' | 'hover';
+  };
+  /** Fires when the user opens the share-poster's "Save share card" link. */
+  wrapped_share_opened: {
+    wrappedCycleId: string;
+    variantId: string;
+  };
+  /** Fires when the share poster's summary line is copied. */
+  wrapped_poster_copied: {
+    wrappedCycleId: string;
+    kind: 'summary' | 'closing';
+  };
+  /** Fires when the breakdown row's underlying classification is opened. */
+  wrapped_classification_opened: {
+    wrappedCycleId: string;
+    classification: string;
+    variantId: string;
+  };
+
+  // — Internal ops console (instrumentation only) —
+  ops_view: { hours: number };
+  ops_window_changed: { fromHours: number; toHours: number };
+  ops_variant_drilldown_opened: { variantKey: string };
+
   // — Environment / one-shot —
   reduced_motion_detected: { value: boolean };
   theme_toggled: { from: AnalyticsTheme; to: AnalyticsTheme };

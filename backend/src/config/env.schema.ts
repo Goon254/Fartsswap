@@ -105,6 +105,9 @@ export const envSchema = z.object({
   // --- App role ---
   // 'api' (default): serve HTTP. 'worker': run background dispatchers only.
   APP_ROLE: z.enum(['api', 'worker', 'all']).default('all'),
+
+  /** Shared secret for internal ops/mission-control API (`x-ops-key` header). */
+  OPS_CONSOLE_SECRET: z.string().optional(),
 })
 .superRefine((env, ctx) => {
   if (env.NODE_ENV === 'production' && !env.SESSION_COOKIE_SECRET) {
@@ -113,6 +116,14 @@ export const envSchema = z.object({
       path: ['SESSION_COOKIE_SECRET'],
       message:
         'SESSION_COOKIE_SECRET is required in production (>= 32 chars) to sign anonymous session cookies',
+    });
+  }
+  if (env.NODE_ENV === 'production' && (!env.OPS_CONSOLE_SECRET || env.OPS_CONSOLE_SECRET.trim().length < 16)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['OPS_CONSOLE_SECRET'],
+      message:
+        'OPS_CONSOLE_SECRET is required in production (min 16 chars) to protect internal ops dashboard API routes',
     });
   }
   if (env.STORAGE_PROVIDER === 's3') {

@@ -19,6 +19,7 @@ import {
 } from '../../../shared/application/ports/transaction.port';
 import { AppConfigService } from '../../../config/config.service';
 import { MetricsService } from '../../../observability/metrics.service';
+import { publicSlugFromReportId } from '../../../shared/domain/public-slug';
 import { AiReportOrchestrator } from '../../ai/application/ai-report.orchestrator';
 import {
   AUDIO_UPLOAD_REPOSITORY,
@@ -105,6 +106,7 @@ export class CreateReportFromAudioUseCase {
     const report: Report = {
       id: reportId,
       sessionId: command.sessionId ?? upload.sessionId,
+      publicSlug: publicSlugFromReportId(reportId),
       status: ReportStatus.COMPLETED,
       source: ReportSource.AUDIO_RECORDING,
       fartName: ai.fields.fartName,

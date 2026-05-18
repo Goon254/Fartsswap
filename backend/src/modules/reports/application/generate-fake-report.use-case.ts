@@ -8,6 +8,7 @@ import {
   type TransactionPort,
 } from '../../../shared/application/ports/transaction.port';
 import { MetricsService } from '../../../observability/metrics.service';
+import { publicSlugFromReportId } from '../../../shared/domain/public-slug';
 import { AiReportOrchestrator } from '../../ai/application/ai-report.orchestrator';
 import { REPORT_REPOSITORY, type ReportRepository } from './ports/report.repository';
 import { TrackAnalyticsEventUseCase } from '../../analytics/application/track-analytics-event.use-case';
@@ -52,6 +53,7 @@ export class GenerateFakeReportUseCase {
     const report: Report = {
       id: reportId,
       sessionId: command.sessionId,
+      publicSlug: publicSlugFromReportId(reportId),
       status: ReportStatus.COMPLETED,
       source: ReportSource.FAKE,
       fartName: ai.fields.fartName,

@@ -17,6 +17,12 @@ export class AnalyticsEventEntity {
   @Column({ type: 'jsonb', nullable: true })
   payload?: Record<string, unknown>;
 
+  @Column({ name: 'client_event_id', type: 'uuid', nullable: true })
+  clientEventId?: string;
+
+  @Column({ name: 'ingest_source', length: 16, default: 'server' })
+  ingestSource!: string;
+
   @Column({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

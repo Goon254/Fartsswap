@@ -47,6 +47,12 @@ export class ReportResponseDto {
   @ApiProperty()
   updatedAt!: string;
 
+  @ApiPropertyOptional({ description: 'Short public slug for share URLs' })
+  publicSlug?: string;
+
+  @ApiPropertyOptional()
+  variantId?: string;
+
   @ApiPropertyOptional()
   completedAt?: string;
 

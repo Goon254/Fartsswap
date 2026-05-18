@@ -22,6 +22,7 @@ describe('GenerateFakeReportUseCase', () => {
       saveReport: jest.fn().mockResolvedValue(undefined),
       saveReportInput: jest.fn().mockResolvedValue(undefined),
       findReportById: jest.fn(),
+      findReportByPublicSlug: jest.fn(),
     };
     ids = {
       generate: jest.fn(() => {

@@ -62,7 +62,7 @@ async function bootstrap(): Promise<void> {
         },
     credentials: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Idempotency-Key'],
+    allowedHeaders: ['Content-Type', 'Idempotency-Key', 'x-ops-key'],
     exposedHeaders: ['Idempotency-Key', 'Idempotent-Replayed'],
   });
 

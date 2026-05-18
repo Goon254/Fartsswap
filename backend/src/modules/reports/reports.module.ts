@@ -8,6 +8,7 @@ import { IdentityModule } from '../identity/identity.module';
 import { REPORT_REPOSITORY } from './application/ports/report.repository';
 import { CreateReportFromAudioUseCase } from './application/create-report-from-audio.use-case';
 import { GenerateFakeReportUseCase } from './application/generate-fake-report.use-case';
+import { GetReportBySlugUseCase } from './application/get-report-by-slug.use-case';
 import { GetReportUseCase } from './application/get-report.use-case';
 import { ReportEntity } from './infrastructure/persistence/report.entity';
 import { ReportInputEntity } from './infrastructure/persistence/report-input.entity';
@@ -29,11 +30,13 @@ import { ReportsController } from './interface/http/reports.controller';
     GenerateFakeReportUseCase,
     CreateReportFromAudioUseCase,
     GetReportUseCase,
+    GetReportBySlugUseCase,
   ],
   exports: [
     GenerateFakeReportUseCase,
     CreateReportFromAudioUseCase,
     GetReportUseCase,
+    GetReportBySlugUseCase,
     REPORT_REPOSITORY,
   ],
 })

@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import type { AnalyticsEvent } from '../../../shared/domain/models';
-import type { AnalyticsEventType } from '../../../shared/domain/types';
 import { CLOCK_PORT, type ClockPort } from '../../../shared/application/ports/clock.port';
 import { ID_GENERATOR_PORT, type IdGeneratorPort } from '../../../shared/application/ports/id-generator.port';
 import { OUTBOX_PORT, type OutboxPort } from '../../../shared/application/ports/outbox.port';
@@ -12,8 +11,12 @@ import {
 export interface TrackAnalyticsEventCommand {
   sessionId?: string;
   reportId?: string;
-  eventType: AnalyticsEventType;
+  /** Server `AnalyticsEventType` values or client catalog names (`report_view`). */
+  eventType: string;
   payload?: Record<string, unknown>;
+  /** When present, duplicates are rejected at persistence (client-generated UUID). */
+  clientEventId?: string;
+  ingestSource?: 'server' | 'client';
 }
 
 @Injectable()
@@ -36,6 +39,8 @@ export class TrackAnalyticsEventUseCase {
       eventType: command.eventType,
       ...(command.payload !== undefined ? { payload: command.payload } : {}),
       createdAt: this.clock.now().toISOString(),
+      ...(command.clientEventId !== undefined ? { clientEventId: command.clientEventId } : {}),
+      ingestSource: command.ingestSource ?? 'server',
     };
     await this.events.save(event);
     return event;

@@ -37,10 +37,18 @@ export class TypeOrmReportRepository implements ReportRepository {
     return row ? this.reportToDomain(row) : null;
   }
 
+  async findReportByPublicSlug(slug: string): Promise<Report | null> {
+    const row = await this.reportsRepo().findOne({ where: { publicSlug: slug } });
+    return row ? this.reportToDomain(row) : null;
+  }
+
   private reportToEntity(report: Report): ReportEntity {
     const entity = new ReportEntity();
     entity.id = report.id;
     entity.sessionId = report.sessionId;
+    entity.publicSlug = report.publicSlug;
+    entity.variantId = report.variantId;
+    entity.platformMetadata = report.platformMetadata;
     entity.status = report.status;
     entity.source = report.source;
     entity.fartName = report.fartName;
@@ -75,6 +83,9 @@ export class TypeOrmReportRepository implements ReportRepository {
     return {
       id: entity.id,
       sessionId: entity.sessionId,
+      publicSlug: entity.publicSlug,
+      variantId: entity.variantId,
+      platformMetadata: entity.platformMetadata,
       status: entity.status as Report['status'],
       source: entity.source as Report['source'],
       fartName: entity.fartName,

@@ -29,6 +29,7 @@ describe('CreateReportFromAudioUseCase', () => {
       saveReport: jest.fn(),
       saveReportInput: jest.fn(),
       findReportById: jest.fn(),
+      findReportByPublicSlug: jest.fn(),
     };
     audioUploads = {
       save: jest.fn(),

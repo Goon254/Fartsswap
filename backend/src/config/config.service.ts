@@ -191,4 +191,9 @@ export class AppConfigService {
     const role = this.appRole;
     return role === 'worker' || role === 'all';
   }
+
+  /** When unset in non-production, ops routes remain open for local development. */
+  get opsConsoleSecret(): string | undefined {
+    return this.config.get('OPS_CONSOLE_SECRET', { infer: true });
+  }
 }

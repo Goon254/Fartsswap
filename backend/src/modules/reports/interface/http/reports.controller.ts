@@ -12,6 +12,7 @@ import { RateLimit } from '../../../../shared/interface/http/rate-limit.decorato
 import { ResolveAnonymousSessionUseCase } from '../../../identity/application/resolve-anonymous-session.use-case';
 import { CreateReportFromAudioUseCase } from '../../application/create-report-from-audio.use-case';
 import { GenerateFakeReportUseCase } from '../../application/generate-fake-report.use-case';
+import { GetReportBySlugUseCase } from '../../application/get-report-by-slug.use-case';
 import { GetReportUseCase } from '../../application/get-report.use-case';
 import { CreateReportFromAudioDto } from './dto/create-report-from-audio.dto';
 import { GenerateFakeReportDto } from './dto/generate-fake-report.dto';
@@ -24,6 +25,7 @@ export class ReportsController {
     private readonly generateFakeReport: GenerateFakeReportUseCase,
     private readonly createReportFromAudio: CreateReportFromAudioUseCase,
     private readonly getReport: GetReportUseCase,
+    private readonly getReportBySlug: GetReportBySlugUseCase,
     private readonly resolveSession: ResolveAnonymousSessionUseCase,
     private readonly config: AppConfigService,
   ) {}
@@ -89,6 +91,23 @@ export class ReportsController {
     });
 
     writeSignedSessionCookie(reply, cookieName, session.id, this.config);
+    return ReportResponseDto.fromDomain(report);
+  }
+
+  @Get('by-slug/:slug')
+  @ApiOperation({ summary: 'Get a report by public slug' })
+  @ApiOkResponse({ type: ReportResponseDto })
+  async findBySlug(
+    @Param('slug') slug: string,
+    @Req() request: FastifyRequest,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<ReportResponseDto> {
+    const cookieName = this.config.session.cookieName;
+    const existingSessionId = readSignedSessionCookie(request, cookieName);
+    const session = await this.resolveSession.execute(existingSessionId);
+    writeSignedSessionCookie(reply, cookieName, session.id, this.config);
+
+    const report = await this.getReportBySlug.execute(slug, session.id);
     return ReportResponseDto.fromDomain(report);
   }
 

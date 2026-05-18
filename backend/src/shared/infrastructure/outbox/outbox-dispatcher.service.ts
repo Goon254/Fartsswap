@@ -3,7 +3,6 @@ import { AppConfigService } from '../../../config/config.service';
 import { MetricsService } from '../../../observability/metrics.service';
 import { captureException } from '../../../observability/sentry';
 import { TrackAnalyticsEventUseCase } from '../../../modules/analytics/application/track-analytics-event.use-case';
-import type { AnalyticsEventType } from '../../domain/types';
 import { TypeOrmOutboxAdapter } from './typeorm-outbox.repository';
 
 /**
@@ -74,7 +73,7 @@ export class OutboxDispatcherService implements OnModuleInit, OnApplicationShutd
             ...(typeof row.aggregateId === 'string' && row.aggregateType === 'report'
               ? { reportId: row.aggregateId }
               : {}),
-            eventType: row.eventType as AnalyticsEventType,
+            eventType: row.eventType,
             payload: row.payload,
           });
           await this.outbox.markDispatched(row.id, new Date());
