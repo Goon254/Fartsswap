@@ -15,6 +15,13 @@ import {
   type Challenge,
   type ChallengePerspective,
 } from '@/lib/challenge';
+import {
+  challengeFromResponseDto,
+  fetchChallengeById,
+  isPersistedChallengeId,
+  openChallenge,
+  resolveChallenge,
+} from '@/lib/challenge-api';
 import { fetchSponsorshipResolve } from '@/lib/sponsorship-api';
 
 interface ChallengeFlowClientProps {
@@ -43,10 +50,91 @@ interface ChallengeFlowClientProps {
  * completion — that's the "challenge_context_forwarded" handoff.
  */
 export function ChallengeFlowClient({
-  challenge,
+  challenge: fallbackChallenge,
   perspective,
   hasValidParams,
 }: ChallengeFlowClientProps) {
+  const challengeId = fallbackChallenge.challengeId.trim();
+  const shouldFetchPersisted = isPersistedChallengeId(challengeId);
+
+  const [loadedChallenge, setLoadedChallenge] = useState<Challenge | null>(null);
+  const [challengeLoadSettled, setChallengeLoadSettled] = useState(!shouldFetchPersisted);
+  const [resolveBusy, setResolveBusy] = useState(false);
+  const resolveInFlightRef = useRef(false);
+  const backendOpenRecordedRef = useRef<string | null>(null);
+  const canResolveBackend = shouldFetchPersisted && loadedChallenge !== null;
+
+  useEffect(() => {
+    backendOpenRecordedRef.current = null;
+  }, [challengeId]);
+
+  useEffect(() => {
+    if (!shouldFetchPersisted) {
+      setLoadedChallenge(null);
+      setChallengeLoadSettled(true);
+      return;
+    }
+
+    let cancelled = false;
+    setChallengeLoadSettled(false);
+
+    void (async () => {
+      try {
+        const dto = await fetchChallengeById(challengeId);
+        if (!cancelled) {
+          setLoadedChallenge(challengeFromResponseDto(dto));
+        }
+      } catch {
+        if (!cancelled) {
+          setLoadedChallenge(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setChallengeLoadSettled(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [challengeId, shouldFetchPersisted]);
+
+  useEffect(() => {
+    if (!shouldFetchPersisted || !challengeLoadSettled || !loadedChallenge) return;
+    if (backendOpenRecordedRef.current === challengeId) return;
+    backendOpenRecordedRef.current = challengeId;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const updated = await openChallenge(
+          challengeId,
+          JSON.stringify({ payload: { perspective, hasValidParams } }),
+          { contentType: 'application/json' },
+        );
+        if (!cancelled) {
+          setLoadedChallenge(challengeFromResponseDto(updated));
+        }
+      } catch {
+        // Non-blocking: challenge page remains usable on open-event failure.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    challengeId,
+    shouldFetchPersisted,
+    challengeLoadSettled,
+    loadedChallenge,
+    perspective,
+    hasValidParams,
+  ]);
+
+  const challenge = loadedChallenge ?? fallbackChallenge;
+
   const [sponsorChallenge, setSponsorChallenge] = useState<
     { supportingLine?: string; placementId?: string } | undefined
   >(undefined);
@@ -74,10 +162,14 @@ export function ChallengeFlowClient({
     };
   }, [challenge.challengeId, challenge.sourceVariantId]);
 
-  // Fire challenge_link_opened exactly once on mount. Strict-mode safe via
-  // a ref guard.
+  // Fire challenge_link_opened once per challenge id after fetch settles.
   const openedRef = useRef(false);
   useEffect(() => {
+    openedRef.current = false;
+  }, [challengeId]);
+
+  useEffect(() => {
+    if (!challengeLoadSettled) return;
     if (openedRef.current) return;
     openedRef.current = true;
     track('challenge_link_opened', {
@@ -89,8 +181,7 @@ export function ChallengeFlowClient({
       perspective,
       hasValidParams,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [challenge, challengeLoadSettled, perspective, hasValidParams]);
 
   const serialized = useMemo(() => serializeChallenge(challenge).toString(), [challenge]);
   const acceptHref = `/analyze?path=record&${serialized}`;
@@ -113,6 +204,41 @@ export function ChallengeFlowClient({
     },
     [challenge, perspective],
   );
+
+  const onAcceptChallenge = useCallback(() => {
+    onCtaClicked('accept');
+
+    const navigateToAccept = (target: Challenge) => {
+      const params = serializeChallenge(target).toString();
+      window.location.href = `/analyze?path=record&${params}`;
+    };
+
+    if (!canResolveBackend) {
+      navigateToAccept(challenge);
+      return;
+    }
+    if (resolveBusy || resolveInFlightRef.current) return;
+
+    resolveInFlightRef.current = true;
+    setResolveBusy(true);
+    void (async () => {
+      try {
+        const updated = await resolveChallenge(
+          challengeId,
+          JSON.stringify({ payload: { cta: 'accept', perspective } }),
+          { contentType: 'application/json' },
+        );
+        const resolved = challengeFromResponseDto(updated);
+        setLoadedChallenge(resolved);
+        navigateToAccept(resolved);
+      } catch {
+        navigateToAccept(challenge);
+      } finally {
+        resolveInFlightRef.current = false;
+        setResolveBusy(false);
+      }
+    })();
+  }, [canResolveBackend, challenge, challengeId, onCtaClicked, perspective, resolveBusy]);
 
   return (
     <>
@@ -143,6 +269,13 @@ export function ChallengeFlowClient({
               backHref={backHref}
               {...(perspective === 'sender' ? { copyableLink: recipientLink } : {})}
               onCtaClicked={onCtaClicked}
+              {...(canResolveBackend
+                ? {
+                    onAcceptChallenge,
+                    acceptDisabled: resolveBusy,
+                    acceptBusyLabel: resolveBusy ? 'Accepting…' : undefined,
+                  }
+                : {})}
             />
           </div>
         </motion.section>

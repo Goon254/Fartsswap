@@ -65,6 +65,10 @@ export async function uploadAudio(
   mimeType: string,
   durationSeconds?: number,
 ): Promise<AudioUploadResponseDto> {
+  if (!blob || blob.size === 0) {
+    throw new Error('Recording is empty');
+  }
+
   const form = new FormData();
   form.append('file', blob, `recording.${extensionForMime(mimeType)}`);
   if (durationSeconds !== undefined && Number.isFinite(durationSeconds)) {

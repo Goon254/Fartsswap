@@ -18,6 +18,10 @@ interface ChallengeCtaPanelProps {
   copyableLink?: string;
   /** Analytics hook — passes the cta name back to the parent. */
   onCtaClicked?: (cta: 'accept' | 'fake' | 'back_to_lab' | 'copy_link') => void;
+  /** When set, Accept uses this handler instead of href navigation (persisted resolve flow). */
+  onAcceptChallenge?: () => void;
+  acceptDisabled?: boolean;
+  acceptBusyLabel?: string;
 }
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -47,6 +51,9 @@ export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
   backHref,
   copyableLink,
   onCtaClicked,
+  onAcceptChallenge,
+  acceptDisabled,
+  acceptBusyLabel,
 }) => {
   const [copyPhase, setCopyPhase] = useState<'idle' | 'saved' | 'error'>('idle');
 
@@ -96,14 +103,14 @@ export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
         {isSender ? (
           <>
             <CopyButton phase={copyPhase} onClick={onCopy} />
-            <Button
+            <AcceptChallengeButton
               variant="secondary"
-              href={acceptHref}
-              onClick={() => onCtaClicked?.('accept')}
-              trailing={<Arrow />}
-            >
-              Accept it yourself
-            </Button>
+              acceptHref={acceptHref}
+              label={acceptBusyLabel ?? 'Accept it yourself'}
+              disabled={acceptDisabled}
+              onAcceptChallenge={onAcceptChallenge}
+              onCtaClicked={onCtaClicked}
+            />
             <Button
               variant="ghost"
               href={backHref}
@@ -114,14 +121,14 @@ export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
           </>
         ) : (
           <>
-            <Button
+            <AcceptChallengeButton
               variant="primary"
-              href={acceptHref}
-              onClick={() => onCtaClicked?.('accept')}
-              trailing={<Arrow />}
-            >
-              Accept challenge
-            </Button>
+              acceptHref={acceptHref}
+              label={acceptBusyLabel ?? 'Accept challenge'}
+              disabled={acceptDisabled}
+              onAcceptChallenge={onAcceptChallenge}
+              onCtaClicked={onCtaClicked}
+            />
             <Button
               variant="secondary"
               href={fakeHref}
@@ -164,6 +171,42 @@ export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
         </div>
       </div>
     </motion.aside>
+  );
+};
+
+const AcceptChallengeButton: FC<{
+  variant: 'primary' | 'secondary';
+  acceptHref: string;
+  label: string;
+  disabled?: boolean;
+  onAcceptChallenge?: () => void;
+  onCtaClicked?: (cta: 'accept') => void;
+}> = ({ variant, acceptHref, label, disabled, onAcceptChallenge, onCtaClicked }) => {
+  if (onAcceptChallenge) {
+    return (
+      <Button
+        variant={variant}
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          onAcceptChallenge();
+        }}
+        trailing={<Arrow />}
+      >
+        {label}
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant={variant}
+      href={acceptHref}
+      onClick={() => onCtaClicked?.('accept')}
+      trailing={<Arrow />}
+    >
+      {label}
+    </Button>
   );
 };
 

@@ -17,8 +17,12 @@ export type ResolveUpstreamBaseResult =
 
 /**
  * Resolves the backend origin for BFF proxies.
- * In production, `FARTS_API_BASE_URL` must be set. In development, missing values
- * fall back to `http://127.0.0.1:3000` to match other legacy proxies in this app.
+ * In production/staging, `FARTS_API_BASE_URL` must be set. In development, missing
+ * values fall back to `http://127.0.0.1:3000`.
+ *
+ * Callers must forward the browser `Cookie` header on requests and pass through
+ * upstream `Set-Cookie` on responses (see `buildForwardedRequestHeaders`,
+ * `toProxiedNextResponse`) so anonymous API sessions work from the Next origin only.
  */
 export function resolveUpstreamBaseUrl(): ResolveUpstreamBaseResult {
   const raw = process.env.FARTS_API_BASE_URL?.trim();

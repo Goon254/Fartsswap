@@ -252,6 +252,23 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
     finalizingRef.current = false;
     setCaptureError(null);
 
+    if (typeof MediaRecorder === 'undefined') {
+      setCaptureError(
+        'This browser does not support audio recording. Use Chrome or Chromium to record.',
+      );
+      setProgress(0);
+      setState('STANDBY');
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCaptureError(
+        'Microphone capture is not available in this browser or context (use HTTPS).',
+      );
+      setProgress(0);
+      setState('STANDBY');
+      return;
+    }
+
     const mimeType = pickSupportedMimeType();
     if (!mimeType) {
       setCaptureError(

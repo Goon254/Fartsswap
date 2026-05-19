@@ -12,9 +12,8 @@ import { LAUNCH_MODE } from '@/lib/launch-mode';
  * Public homepage.
  *
  * Two modes:
- *   - `LAUNCH_MODE=true`  → pre-launch shell (LaunchShellClient).
- *                            Used while we're in private beta / waitlist.
- *   - `LAUNCH_MODE=false` → the live product landing (Hero + FeatureGrid).
+ *   - `LAUNCH_MODE=false` → live product landing (Hero + FeatureGrid). Default.
+ *   - `LAUNCH_MODE=true`  → pre-launch waitlist shell (LaunchShellClient).
  *
  * The flag lives in `src/lib/launch-mode.ts` and is wired to the
  * `NEXT_PUBLIC_LAUNCH_MODE` env var so CI can flip modes without a code

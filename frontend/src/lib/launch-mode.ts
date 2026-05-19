@@ -5,8 +5,9 @@
  *                          launch shell instead of the regular landing.
  *                          Read from `NEXT_PUBLIC_LAUNCH_MODE` at build
  *                          time so it can be flipped from CI / env without
- *                          touching code. Defaults to `true` while we are
- *                          pre-launch.
+ *                          touching code. Defaults to `false` (live product).
+ *                          Set `NEXT_PUBLIC_LAUNCH_MODE=true` to restore the
+ *                          pre-launch waitlist shell on `/`.
  *
  * - `RELEASE_TARGET_ISO` : the date the public filing line opens. Used by
  *                          `<ReleaseBulletin>` to drive the countdown. Set
@@ -20,9 +21,9 @@
 const RAW_MODE = process.env.NEXT_PUBLIC_LAUNCH_MODE;
 const RAW_TARGET = process.env.NEXT_PUBLIC_RELEASE_TARGET_ISO;
 
-/** Default: launch mode on, except when explicitly turned off. */
+/** Default: live product on `/`; set env to `true` for the pre-launch shell. */
 export const LAUNCH_MODE: boolean =
-  RAW_MODE === undefined ? true : RAW_MODE.toLowerCase() !== 'false';
+  RAW_MODE === undefined ? false : RAW_MODE.toLowerCase() === 'true';
 
 /** Default target: ~14 weeks out from the build date, anchored at 17:00 UTC. */
 export const RELEASE_TARGET_ISO: string =

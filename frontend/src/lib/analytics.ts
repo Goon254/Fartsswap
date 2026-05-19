@@ -9,7 +9,8 @@
  *    from a server component path are no-ops.
  *  - Tiny on the wire. The "transport" in this milestone is a console
  *    logger (dev), an in-memory ring buffer (always, exposed for dev
- *    panels), and an opt-in HTTP beacon (NEXT_PUBLIC_ANALYTICS_ENDPOINT).
+ *    panels), and a best-effort HTTP beacon to `/api/analytics/events`
+ *    (same-origin BFF) unless overridden by `NEXT_PUBLIC_ANALYTICS_ENDPOINT`.
  *  - Anonymous session id is owned here, not in components. localStorage
  *    if available, sessionStorage fallback, in-memory final fallback.
  *
@@ -103,7 +104,11 @@ export function subscribe(fn: (record: AnalyticsRecord) => void): () => void {
 const STORAGE_KEY = 'farts.com:analytics_id';
 const BUFFER_MAX = 200;
 const IS_DEV = process.env.NODE_ENV !== 'production';
-const HTTP_ENDPOINT = process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT;
+/** Default ingest via Next BFF → `POST /api/v1/analytics/events` (credentials via cookie on fetch fallback). */
+const SAME_ORIGIN_ANALYTICS_ENDPOINT = '/api/analytics/events';
+/** When set, replaces the default same-origin BFF ingest URL (e.g. direct API in legacy setups). */
+const HTTP_ENDPOINT =
+  process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT?.trim() || SAME_ORIGIN_ANALYTICS_ENDPOINT;
 
 let cachedSessionId: string | null = null;
 const buffer: AnalyticsRecord[] = [];
@@ -213,18 +218,34 @@ function logToConsole(record: AnalyticsRecord): void {
   /* eslint-enable no-console */
 }
 
+function isSameOriginAnalyticsEndpoint(endpoint: string): boolean {
+  if (endpoint.startsWith('/')) return true;
+  if (!isBrowser()) return false;
+  try {
+    return new URL(endpoint).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 function sendBeacon(record: AnalyticsRecord): void {
-  if (!HTTP_ENDPOINT || !isBrowser()) return;
+  if (!isBrowser()) return;
   try {
     const body = JSON.stringify(record);
+    const sameOrigin = isSameOriginAnalyticsEndpoint(HTTP_ENDPOINT);
+    const beaconPayload =
+      sameOrigin && typeof Blob !== 'undefined'
+        ? new Blob([body], { type: 'application/json' })
+        : body;
     if (typeof navigator.sendBeacon === 'function') {
-      navigator.sendBeacon(HTTP_ENDPOINT, body);
+      navigator.sendBeacon(HTTP_ENDPOINT, beaconPayload);
     } else {
       void fetch(HTTP_ENDPOINT, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body,
         keepalive: true,
+        ...(sameOrigin ? { credentials: 'include' as const } : {}),
       }).catch(() => undefined);
     }
   } catch {

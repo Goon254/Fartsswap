@@ -24,8 +24,13 @@ import {
   type ChallengeType,
 } from '@/lib/challenge';
 import { buildCreateChallengeBody, createChallenge as registerChallenge } from '@/lib/challenge-api';
-import type { ChallengeResponseDto, ReportResponseDto } from '@/lib/farts-api-types';
+import type {
+  ChallengeResponseDto,
+  RecordPremiumIntentBodyDto,
+  ReportResponseDto,
+} from '@/lib/farts-api-types';
 import { premiumLinkFor } from '@/lib/premium';
+import { recordPremiumIntent } from '@/lib/premium-api';
 import { fetchReportById } from '@/lib/report-from-recording-api';
 import {
   getVariant,
@@ -191,6 +196,7 @@ export function ReportResultClient({
   const [shareLinkStatus, setShareLinkStatus] = useState<string | null>(null);
   const [registeredChallenge, setRegisteredChallenge] = useState<Challenge | null>(null);
   const [challengeRegisterError, setChallengeRegisterError] = useState<string | null>(null);
+  const challengeRegisterReportRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!persistedReportId) {
@@ -307,7 +313,10 @@ export function ReportResultClient({
           JSON.stringify({ styleVariant: 'clinical' }),
           {
             contentType: 'application/json',
-            idempotencyKey: crypto.randomUUID(),
+            idempotencyKey:
+              typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random()}`,
           },
         );
         const contentPath = artifact.contentUrl ?? `/api/v1/artifacts/${artifact.id}/content`;
@@ -357,8 +366,13 @@ export function ReportResultClient({
 
   useEffect(() => {
     if (!persistedReportId) {
+      challengeRegisterReportRef.current = null;
       setRegisteredChallenge(null);
       setChallengeRegisterError(null);
+      return;
+    }
+
+    if (challengeRegisterReportRef.current === persistedReportId) {
       return;
     }
 
@@ -373,6 +387,7 @@ export function ReportResultClient({
         if (!cancelled) {
           setRegisteredChallenge(challengeFromDto(dto));
           setChallengeRegisterError(null);
+          challengeRegisterReportRef.current = persistedReportId;
         }
       } catch (e) {
         if (!cancelled) {
@@ -387,7 +402,9 @@ export function ReportResultClient({
     return () => {
       cancelled = true;
     };
-  }, [persistedReportId, challengeDraft]);
+    // Register once per persisted report; variant switcher must not re-post challenges.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- challengeDraft is read at registration time only
+  }, [persistedReportId]);
 
   const challenge = persistedReportId
     ? (registeredChallenge ?? challengeDraft)
@@ -415,7 +432,23 @@ export function ReportResultClient({
       location: 'report_action_row',
       sourceSurface: 'report',
     });
-  }, [variant.id]);
+
+    const intentBody: RecordPremiumIntentBodyDto = {
+      kind: 'premium_cta_clicked',
+      payload: {
+        variantId: variant.id,
+        location: 'report_action_row',
+        sourceSurface: 'report',
+      },
+      ...(persistedReportId ? { reportId: persistedReportId } : {}),
+    };
+
+    void recordPremiumIntent(JSON.stringify(intentBody), {
+      contentType: 'application/json',
+    }).catch(() => {
+      // Best-effort; href navigation to /premium is unchanged on failure.
+    });
+  }, [persistedReportId, variant.id]);
 
   // Retained for fallback diagnostics; no dedicated error surface on this page.
   void reportFetchError;

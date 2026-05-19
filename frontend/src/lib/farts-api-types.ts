@@ -99,6 +99,37 @@ export interface CreateShareLinkResponseDto {
   createdAt: string;
 }
 
+/** Mirrors backend `RecordPremiumIntentBodyDto`. */
+export interface RecordPremiumIntentBodyDto {
+  kind: string;
+  reportId?: string;
+  payload?: Record<string, unknown>;
+  lifecycleState?: string;
+  commerceThemeCode?: string;
+  productSku?: string;
+  amountCents?: number;
+  currency?: string;
+}
+
+/** Mirrors backend `PremiumIntentResponseDto`. */
+export interface PremiumIntentResponseDto {
+  id: string;
+  sessionId?: string;
+  reportId?: string;
+  kind: string;
+  payload?: Record<string, unknown>;
+  createdAt: string;
+  lifecycleState?: string;
+  commerceThemeCode?: string;
+  productSku?: string;
+  amountCents?: number;
+  currency?: string;
+  checkoutExternalId?: string;
+  fulfillmentRef?: string;
+  fulfilledAt?: string;
+  updatedAt?: string;
+}
+
 export interface ApiErrorBody {
   error?: string;
   message?: string | string[];

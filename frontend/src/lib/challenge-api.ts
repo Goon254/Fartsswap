@@ -1,6 +1,32 @@
 import type { ChallengeResponseDto, CreateChallengeBody } from '@/lib/farts-api-types';
 import { assertNoContent, assertOk } from '@/lib/report-from-recording-api';
-import type { Challenge } from '@/lib/challenge';
+import type { Challenge, ChallengeSourceSurface, ChallengeType } from '@/lib/challenge';
+
+const VALID_CHALLENGE_TYPES: readonly ChallengeType[] = [
+  'beat_score',
+  'rarer_classification',
+  'open',
+];
+const VALID_CHALLENGE_SURFACES: readonly ChallengeSourceSurface[] = ['report', 'share'];
+
+const CHALLENGE_ID_RE = /^ch_[a-zA-Z0-9_-]{1,58}$/;
+
+export function isPersistedChallengeId(challengeId: string): boolean {
+  return CHALLENGE_ID_RE.test(challengeId.trim());
+}
+
+export function challengeFromResponseDto(dto: ChallengeResponseDto): Challenge {
+  const challengeType = dto.challengeType as ChallengeType;
+  const sourceSurface = dto.sourceSurface as ChallengeSourceSurface;
+  return {
+    challengeId: dto.id,
+    sourceVariantId: dto.variantId,
+    sourceScore: dto.sourceScore,
+    issuedAt: dto.issuedAt,
+    challengeType: VALID_CHALLENGE_TYPES.includes(challengeType) ? challengeType : 'beat_score',
+    sourceSurface: VALID_CHALLENGE_SURFACES.includes(sourceSurface) ? sourceSurface : 'report',
+  };
+}
 
 export function buildCreateChallengeBody(draft: Challenge, reportId: string): CreateChallengeBody {
   return {
@@ -49,6 +75,9 @@ export async function createChallenge(
 
 export async function fetchChallengeById(challengeId: string): Promise<ChallengeResponseDto> {
   const id = requireChallengeId(challengeId);
+  if (!isPersistedChallengeId(id)) {
+    throw new Error('Invalid persisted challenge id');
+  }
 
   const res = await fetch(`/api/challenges/${encodeURIComponent(id)}`, {
     method: 'GET',
