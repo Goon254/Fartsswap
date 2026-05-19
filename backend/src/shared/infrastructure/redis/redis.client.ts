@@ -36,6 +36,10 @@ export class RedisClient implements OnModuleDestroy {
         enableOfflineQueue: false,
       };
       if (password) opts.password = password;
+      // Upstash (and other hosted Redis) require TLS on port 6379.
+      if (host.includes('upstash.io')) {
+        opts.tls = {};
+      }
       this.client = new Redis(opts);
       this.client.on('error', (err: Error) => {
         this.logger.warn({ err: err.message }, 'redis client error');
