@@ -206,6 +206,24 @@ curl -X DELETE "http://localhost:3000/api/v1/audio/uploads/${AUDIO_UPLOAD_ID}" -
 .storage/audio/raw/{sessionId|anonymous}/{audioUploadId}.webm
 ```
 
+### Playback and feed audio
+
+Keep `AUDIO_AUTO_DELETE_AFTER_PROCESSING=false` (default in `.env.example`) so raw uploads remain after dossier creation. Required for:
+
+- Session-private `GET /api/v1/reports/:id/audio`
+- Public `GET /api/v1/gallery/feed/:submissionId/audio` (published + listed items only)
+
+## Public gallery / feed (opt-in)
+
+| Env | Default | Purpose |
+| --- | --- | --- |
+| `GALLERY_SUBMISSIONS_ENABLED` | `true` | `POST /api/v1/gallery/submissions` (session-owned reports) |
+| `GALLERY_PUBLIC_FEED_ENABLED` | **`false`** | `GET /api/v1/gallery/feed` — when false, returns `{ enabled: false, items: [] }` |
+
+Lifecycle: `submitted_for_review` → ops `approve` → ops `publish` → optional community `POST /api/v1/gallery/reports` → status `reported` → ops `remove` / `hide`.
+
+Ops routes: `/api/v1/ops/gallery/*` with `x-ops-key` (`OPS_CONSOLE_SECRET`). Integrated frontend: `/moderation-lab`.
+
 ## Local artifact storage
 
 Generated files are stored under the configured local path (default: `backend/.storage/`):

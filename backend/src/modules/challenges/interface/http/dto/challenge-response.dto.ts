@@ -11,6 +11,9 @@ export class ChallengeResponseDto {
   @ApiPropertyOptional({ format: 'uuid' })
   reportId?: string;
 
+  @ApiPropertyOptional({ format: 'uuid' })
+  responseReportId?: string;
+
   @ApiProperty()
   variantId!: string;
 

@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AppConfigService } from '../../../../config/config.service';
@@ -58,12 +69,29 @@ export class GalleryPublicController {
     return { submission: row };
   }
 
+  @Get('feed/:submissionId/audio')
+  @RateLimit({ max: 60, windowSeconds: 60 })
+  @ApiOperation({
+    summary:
+      'Stream audio for a published feed item only (not session-private report playback)',
+  })
+  @ApiOkResponse({ description: 'Published feed specimen audio bytes' })
+  async feedAudio(
+    @Param('submissionId') submissionId: string,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const { body, contentType } = await this.gallery.getPublishedFeedAudioContent(submissionId);
+    void reply.header('Content-Type', contentType);
+    void reply.header('Cache-Control', 'public, max-age=300');
+    void reply.send(body);
+  }
+
   @Get('feed')
   @RateLimit({ max: 30, windowSeconds: 60 })
   @ApiOperation({
-    summary: 'Public artifact-first feed (disabled until GALLERY_PUBLIC_FEED_ENABLED=true)',
+    summary: 'Public moderated feed (disabled until GALLERY_PUBLIC_FEED_ENABLED=true)',
   })
-  @ApiOkResponse({ description: 'Curated-safe card rows only — no audio URLs' })
+  @ApiOkResponse({ description: 'Approved published items with dossier metadata' })
   async feed(@Query('limit') limitRaw?: string) {
     const limit = limitRaw ? Number(limitRaw) : 24;
     return this.gallery.listPublicFeed(Number.isFinite(limit) ? limit : 24);

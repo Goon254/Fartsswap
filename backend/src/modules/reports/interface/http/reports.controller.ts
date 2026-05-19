@@ -12,6 +12,7 @@ import { RateLimit } from '../../../../shared/interface/http/rate-limit.decorato
 import { ResolveAnonymousSessionUseCase } from '../../../identity/application/resolve-anonymous-session.use-case';
 import { CreateReportFromAudioUseCase } from '../../application/create-report-from-audio.use-case';
 import { GenerateFakeReportUseCase } from '../../application/generate-fake-report.use-case';
+import { GetReportAudioContentUseCase } from '../../application/get-report-audio-content.use-case';
 import { GetReportBySlugUseCase } from '../../application/get-report-by-slug.use-case';
 import { GetReportUseCase } from '../../application/get-report.use-case';
 import { CreateReportFromAudioDto } from './dto/create-report-from-audio.dto';
@@ -25,6 +26,7 @@ export class ReportsController {
     private readonly generateFakeReport: GenerateFakeReportUseCase,
     private readonly createReportFromAudio: CreateReportFromAudioUseCase,
     private readonly getReport: GetReportUseCase,
+    private readonly getReportAudio: GetReportAudioContentUseCase,
     private readonly getReportBySlug: GetReportBySlugUseCase,
     private readonly resolveSession: ResolveAnonymousSessionUseCase,
     private readonly config: AppConfigService,
@@ -111,6 +113,28 @@ export class ReportsController {
     return ReportResponseDto.fromDomain(report);
   }
 
+  @Get(':id/audio')
+  @RateLimit({ max: 60, windowSeconds: 60 })
+  @ApiOperation({
+    summary: 'Stream session-owned audio for a report (private playback; same session only)',
+  })
+  @ApiOkResponse({ description: 'Raw audio bytes for the captured specimen' })
+  async streamAudio(
+    @Param('id') id: string,
+    @Req() request: FastifyRequest,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const cookieName = this.config.session.cookieName;
+    const existingSessionId = readSignedSessionCookie(request, cookieName);
+    const session = await this.resolveSession.execute(existingSessionId);
+    writeSignedSessionCookie(reply, cookieName, session.id, this.config);
+
+    const { body, contentType } = await this.getReportAudio.getContent(id, session.id);
+    void reply.header('Content-Type', contentType);
+    void reply.header('Cache-Control', 'private, no-store');
+    void reply.send(body);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a report by ID' })
   @ApiOkResponse({ type: ReportResponseDto })
@@ -125,6 +149,7 @@ export class ReportsController {
     writeSignedSessionCookie(reply, cookieName, session.id, this.config);
 
     const report = await this.getReport.execute(id, session.id);
-    return ReportResponseDto.fromDomain(report);
+    const playback = await this.getReportAudio.getPlaybackMeta(id, session.id);
+    return ReportResponseDto.fromDomain(report, playback);
   }
 }

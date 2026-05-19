@@ -10,10 +10,21 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, QueryFailedError, Repository } from 'typeorm';
 import { AppConfigService } from '../../../config/config.service';
 import {
+  OBJECT_STORAGE_PORT,
+  type ObjectStoragePort,
+} from '../../../shared/application/ports/object-storage.port';
+import {
   AnalyticsEventType,
   ArtifactStatus,
+  AudioStatus,
+  ReportSource,
   ReportStatus,
 } from '../../../shared/domain/types';
+import {
+  AUDIO_UPLOAD_REPOSITORY,
+  type AudioUploadRepository,
+} from '../../audio/application/ports/audio-upload.repository';
+import { formatGallerySpecimenLabel } from '../domain/gallery-specimen-label';
 import { ID_GENERATOR_PORT, type IdGeneratorPort } from '../../../shared/application/ports/id-generator.port';
 import { CLOCK_PORT, type ClockPort } from '../../../shared/application/ports/clock.port';
 import { TrackAnalyticsEventUseCase } from '../../analytics/application/track-analytics-event.use-case';
@@ -51,6 +62,10 @@ export interface GalleryPublicFeedItem {
   reportId: string;
   publicSlug?: string;
   variantId?: string;
+  fartName: string;
+  probableCause: string;
+  emotionalTone?: string;
+  specimenLabel: string;
   classification: string;
   powerScore: number;
   threatLevel: string;
@@ -58,6 +73,14 @@ export interface GalleryPublicFeedItem {
   themeCode?: string;
   featuredRank?: number;
   publishedAt: string;
+  /** True when GET /gallery/feed/:submissionId/audio may stream for this published item. */
+  audioAvailable: boolean;
+  audioContentType?: string;
+}
+
+export interface GalleryFeedAudioContentResult {
+  body: Buffer;
+  contentType: string;
 }
 
 export interface GalleryOpsSubmissionDetail extends GallerySubmissionRow {
@@ -97,6 +120,8 @@ export class GalleryApplicationService {
     @InjectRepository(ReportArtifactEntity)
     private readonly artifacts: Repository<ReportArtifactEntity>,
     @Inject(REPORT_REPOSITORY) private readonly reports: ReportRepository,
+    @Inject(AUDIO_UPLOAD_REPOSITORY) private readonly audioUploads: AudioUploadRepository,
+    @Inject(OBJECT_STORAGE_PORT) private readonly storage: ObjectStoragePort,
     @Inject(ID_GENERATOR_PORT) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK_PORT) private readonly clock: ClockPort,
     private readonly track: TrackAnalyticsEventUseCase,
@@ -181,6 +206,15 @@ export class GalleryApplicationService {
     }
     if (report.status !== ReportStatus.COMPLETED) {
       throw new BadRequestException('only completed reports may enter gallery review');
+    }
+    if (report.source !== ReportSource.AUDIO_RECORDING) {
+      throw new BadRequestException(
+        'only captured audio specimens may be submitted to the public feed',
+      );
+    }
+    const audioMeta = await this.resolveReportAudioUpload(report.id);
+    if (!audioMeta) {
+      throw new BadRequestException('report has no playable audio specimen for feed submission');
     }
 
     if (args.reportArtifactId) {
@@ -342,6 +376,47 @@ export class GalleryApplicationService {
     return { ok: true };
   }
 
+  async getPublishedFeedAudioContent(submissionId: string): Promise<GalleryFeedAudioContentResult> {
+    if (!this.config.gallery.publicFeedEnabled) {
+      throw new NotFoundException('public feed audio is not available');
+    }
+    const upload = await this.resolvePublishedSubmissionUpload(submissionId);
+    if (!upload) {
+      throw new NotFoundException(`Feed audio not available for submission ${submissionId}`);
+    }
+    const stored = await this.storage.getObject(upload.storageKey);
+    return {
+      body: stored.body,
+      contentType: stored.contentType ?? upload.mimeType ?? 'application/octet-stream',
+    };
+  }
+
+  private async resolveReportAudioUpload(
+    reportId: string,
+  ): Promise<{ mimeType: string; storageKey: string } | null> {
+    const input = await this.reports.findReportInputByReportId(reportId);
+    if (!input?.audioUploadId) return null;
+    const upload = await this.audioUploads.findById(input.audioUploadId);
+    if (!upload || upload.status === AudioStatus.DELETED) return null;
+    if (!upload.storageKey?.trim()) return null;
+    return { mimeType: upload.mimeType ?? 'application/octet-stream', storageKey: upload.storageKey };
+  }
+
+  private async resolvePublishedSubmissionUpload(
+    submissionId: string,
+  ): Promise<{ storageKey: string; mimeType: string } | null> {
+    const sub = await this.submissions.findOne({ where: { id: submissionId } });
+    if (!sub?.listed) return null;
+    if (sub.status !== 'published' && sub.status !== 'reported') return null;
+
+    const report = await this.reports.findReportById(sub.reportId);
+    if (!report || report.source !== ReportSource.AUDIO_RECORDING) return null;
+
+    const audio = await this.resolveReportAudioUpload(sub.reportId);
+    if (!audio) return null;
+    return audio;
+  }
+
   async listPublicFeed(limit: number): Promise<{ enabled: boolean; items: GalleryPublicFeedItem[] }> {
     if (!this.config.gallery.publicFeedEnabled) {
       return { enabled: false, items: [] };
@@ -359,6 +434,10 @@ export class GalleryApplicationService {
         's.report_id AS report_id',
         'r.public_slug AS public_slug',
         'r.variant_id AS variant_id',
+        'r.fart_name AS fart_name',
+        'r.probable_cause AS probable_cause',
+        'r.emotional_tone AS emotional_tone',
+        'r.source AS report_source',
         'r.classification AS classification',
         'r.power_score AS power_score',
         'r.threat_level AS threat_level',
@@ -372,6 +451,10 @@ export class GalleryApplicationService {
         report_id: string;
         public_slug: string | null;
         variant_id: string | null;
+        fart_name: string;
+        probable_cause: string;
+        emotional_tone: string | null;
+        report_source: string;
         classification: string;
         power_score: string;
         threat_level: string;
@@ -392,11 +475,19 @@ export class GalleryApplicationService {
         artifactType = art?.type;
         themeCode = art?.themeCode ?? undefined;
       }
+      const audio =
+        raw.report_source === ReportSource.AUDIO_RECORDING
+          ? await this.resolveReportAudioUpload(raw.report_id)
+          : null;
       items.push({
         submissionId: raw.submission_id,
         reportId: raw.report_id,
         publicSlug: raw.public_slug ?? undefined,
         variantId: raw.variant_id ?? undefined,
+        fartName: raw.fart_name,
+        probableCause: raw.probable_cause,
+        emotionalTone: raw.emotional_tone ?? undefined,
+        specimenLabel: formatGallerySpecimenLabel(raw.submission_id),
         classification: raw.classification,
         powerScore: Number(raw.power_score),
         threatLevel: raw.threat_level,
@@ -404,6 +495,8 @@ export class GalleryApplicationService {
         themeCode,
         featuredRank: raw.featured_rank != null ? Number(raw.featured_rank) : undefined,
         publishedAt: raw.published_at.toISOString(),
+        audioAvailable: audio != null,
+        audioContentType: audio?.mimeType,
       });
     }
     return { enabled: true, items };

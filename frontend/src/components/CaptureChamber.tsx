@@ -411,12 +411,13 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
             </span>
             <span>RECORDING CHAMBER · CHAMBER-3</span>
           </div>
-          <h1 className="mt-4 max-w-[18ch] font-display text-[2.4rem] font-medium leading-[1.02] tracking-tight text-[var(--text-strong)] sm:text-[3rem] md:text-[3.4rem]">
-            Submit a sample for analysis.
+          <h1 className="mt-4 max-w-[20ch] font-display text-[2.4rem] font-medium leading-[1.02] tracking-tight text-[var(--text-strong)] sm:text-[3rem] md:text-[3.4rem]">
+            {mode === 'live' ? 'Record your specimen.' : 'Simulated capture.'}
           </h1>
           <p className="mt-4 max-w-[52ch] text-[0.95rem] leading-relaxed text-[var(--text-default)]">
-            The Bureau will capture up to ten seconds of input. Aim for one clear emission. Subsequent
-            material will be discarded by the chamber filter.
+            {mode === 'live'
+              ? 'Up to ten seconds of live audio. One clear emission — the Bureau issues a persisted dossier with private replay.'
+              : 'Demo chamber — no microphone. Proceed to a synthetic dossier preview.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -471,7 +472,7 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
             {state === 'STANDBY' ? (
               <>
                 <Button variant="primary" onClick={onBegin} trailing={<RecordDot />}>
-                  Begin Capture
+                  {mode === 'live' ? 'Start recording' : 'Begin capture'}
                 </Button>
                 <Button variant="ghost" onClick={onBack}>
                   Back
@@ -496,7 +497,7 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
             {state === 'COMPLETE' ? (
               <>
                 <Button variant="primary" onClick={onComplete} trailing={<Arrow />}>
-                  Continue → Analyze
+                  Issue dossier →
                 </Button>
                 <Button variant="ghost" onClick={onReset}>
                   Re-capture

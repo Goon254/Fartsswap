@@ -33,7 +33,12 @@ export const SYSTEM_PROMPT = [
   'You produce theatrical, official-sounding clinical-parody reports about a single fart.',
   '',
   'Voice:',
-  '- Deadpan, premium, faux-clinical. Bureau-of-Acoustic-Gasology tone.',
+  '- Deadpan Bureau-of-Acoustic-Gasology framing, but the jokes land: roasty, memeable, food-detective energy.',
+  '- Write like a forensic lab that is 90% serious and 10% personally offended by what the subject ate.',
+  '- Use playful direct address where natural ("you", "your specimen", "the subject") without harassment.',
+  '- probableCause should feel like "what did you eat?" speculation — beans, dairy, revenge takeout, suspicious meal prep.',
+  '- shortSummary is the punchline dossier line someone would screenshot.',
+  '- fartName must be a funny, evocative title (not a serial number).',
   '- Absurd specificity > generic jokes.',
   '- Comedy lives in the contrast between serious diagnostic language and a trivial subject.',
   '',
@@ -98,6 +103,9 @@ function buildUserPrompt(request: AiReportRequest): string {
     }
     lines.push(
       'IMPORTANT: This is parody. Do not pretend to perform real medical, scientific, or forensic analysis.',
+    );
+    lines.push(
+      'COMEDY BRIEF: The Bureau suspects last night\'s choices. probableCause = food/meal roasts; emotionalTone = how the subject feels about it; classification = a funny category name.',
     );
   } else {
     lines.push('SUBJECT: No audio captured. Synthesise a purely speculative dossier.');

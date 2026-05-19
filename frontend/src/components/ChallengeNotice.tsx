@@ -110,8 +110,8 @@ export const ChallengeNotice: FC<ChallengeNoticeProps> = ({ challenge, perspecti
                 The Bureau has logged the dossier{' '}
                 <span className="text-[var(--text-strong)]">{variant.classification}</span> at{' '}
                 <span className="text-[var(--text-strong)]">{challenge.sourceScore}/100</span>. You are
-                authorised to enter a counter-submission. The Bureau\u2019s ruling remains provisional
-                until a higher score or a rarer classification is recorded.
+                invited to record a counter-fart. The Bureau compares both specimens when you file
+                yours — bookmark this link to return for the verdict.
               </>
             )}
           </p>

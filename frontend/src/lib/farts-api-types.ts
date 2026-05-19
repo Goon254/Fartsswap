@@ -32,6 +32,9 @@ export interface ReportResponseDto {
   publicSlug?: string;
   variantId?: string;
   completedAt?: string;
+  /** True when GET /api/reports/:reportId/audio may stream for this session. */
+  playbackAvailable?: boolean;
+  audioContentType?: string;
 }
 
 /** Mirrors backend `CreateReportFromAudioDto`. */
@@ -63,11 +66,24 @@ export interface ArtifactResponseDto {
 /** Report artifact list (`GET /api/v1/reports/:reportId/artifacts`). */
 export type ArtifactListResponseDto = ArtifactResponseDto[];
 
-/** Mirrors backend `ChallengeResponseDto`. */
+export interface ChallengeReportSummaryDto {
+  reportId: string;
+  fartName: string;
+  classification: string;
+  powerScore: number;
+  threatLevel: string;
+  probableCause: string;
+  emotionalTone?: string;
+  playbackAvailable: boolean;
+  audioContentType?: string;
+}
+
+/** Mirrors backend `ChallengeDetailResponseDto`. */
 export interface ChallengeResponseDto {
   id: string;
   sessionId?: string;
   reportId?: string;
+  responseReportId?: string;
   variantId: string;
   sourceScore: number;
   challengeType: string;
@@ -76,6 +92,8 @@ export interface ChallengeResponseDto {
   resolvedAt?: string;
   metadata?: Record<string, unknown>;
   createdAt: string;
+  challengerReport?: ChallengeReportSummaryDto;
+  responseReport?: ChallengeReportSummaryDto;
 }
 
 /** Mirrors backend `RegisterChallengeBodyDto`. */
@@ -128,6 +146,73 @@ export interface PremiumIntentResponseDto {
   fulfillmentRef?: string;
   fulfilledAt?: string;
   updatedAt?: string;
+}
+
+/** Gallery submission lifecycle status (mirrors backend). */
+export type GallerySubmissionStatus =
+  | 'submitted_for_review'
+  | 'approved'
+  | 'rejected'
+  | 'published'
+  | 'reported'
+  | 'removed';
+
+export interface GallerySubmissionRow {
+  id: string;
+  reportId: string;
+  reportArtifactId?: string;
+  submitterSessionId: string;
+  status: GallerySubmissionStatus;
+  listed: boolean;
+  featuredRank?: number;
+  submittedAt: string;
+  publishedAt?: string;
+  removedAt?: string;
+  lastReasonCode?: string;
+  operatorNotes?: string;
+}
+
+export interface GallerySubmissionResponse {
+  submission: GallerySubmissionRow | null;
+}
+
+export interface GalleryPublicFeedItem {
+  submissionId: string;
+  reportId: string;
+  publicSlug?: string;
+  variantId?: string;
+  fartName: string;
+  probableCause: string;
+  emotionalTone?: string;
+  specimenLabel: string;
+  classification: string;
+  powerScore: number;
+  threatLevel: string;
+  artifactType?: string;
+  themeCode?: string;
+  featuredRank?: number;
+  publishedAt: string;
+  audioAvailable: boolean;
+  audioContentType?: string;
+}
+
+export interface GalleryPublicFeedResponse {
+  enabled: boolean;
+  items: GalleryPublicFeedItem[];
+}
+
+export type GalleryUserReportReason =
+  | 'explicit_content'
+  | 'harassment'
+  | 'slur_or_hate'
+  | 'minor_safety'
+  | 'copyrighted_audio_or_music'
+  | 'spam'
+  | 'impersonation'
+  | 'policy_other';
+
+export interface GalleryReportFiledResponse {
+  ok: true;
 }
 
 export interface ApiErrorBody {

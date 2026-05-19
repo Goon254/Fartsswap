@@ -8,10 +8,12 @@ import {
 } from '../../../../shared/interface/http/session-cookie';
 import { RateLimit } from '../../../../shared/interface/http/rate-limit.decorator';
 import { ResolveAnonymousSessionUseCase } from '../../../identity/application/resolve-anonymous-session.use-case';
-import { GetChallengeUseCase } from '../../application/get-challenge.use-case';
+import { GetChallengeAudioContentUseCase } from '../../application/get-challenge-audio-content.use-case';
+import { GetChallengeDetailUseCase } from '../../application/get-challenge-detail.use-case';
 import { RecordChallengeEventUseCase } from '../../application/record-challenge-event.use-case';
 import { RegisterChallengeUseCase } from '../../application/register-challenge.use-case';
 import { ResolveChallengeUseCase } from '../../application/resolve-challenge.use-case';
+import { ChallengeDetailResponseDto } from './dto/challenge-detail-response.dto';
 import { ChallengeResponseDto } from './dto/challenge-response.dto';
 import { OpenChallengeBodyDto } from './dto/open-challenge-body.dto';
 import { RegisterChallengeBodyDto } from './dto/register-challenge-body.dto';
@@ -24,7 +26,8 @@ const CHALLENGE_ID_RE = /^ch_[a-zA-Z0-9_-]{1,58}$/;
 export class ChallengesController {
   constructor(
     private readonly registerChallenge: RegisterChallengeUseCase,
-    private readonly getChallenge: GetChallengeUseCase,
+    private readonly getChallengeDetail: GetChallengeDetailUseCase,
+    private readonly getChallengeAudio: GetChallengeAudioContentUseCase,
     private readonly recordEvent: RecordChallengeEventUseCase,
     private readonly resolveChallenge: ResolveChallengeUseCase,
     private readonly resolveSession: ResolveAnonymousSessionUseCase,
@@ -60,15 +63,47 @@ export class ChallengesController {
     return ChallengeResponseDto.fromDomain(link);
   }
 
-  @Get(':challengeId')
-  @ApiOperation({ summary: 'Fetch a persisted challenge by id' })
-  @ApiOkResponse({ type: ChallengeResponseDto })
-  async getOne(@Param('challengeId') challengeId: string): Promise<ChallengeResponseDto> {
+  @Get(':challengeId/challenger-audio')
+  @RateLimit({ max: 60, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Stream challenger specimen audio for a challenge link' })
+  async challengerAudio(
+    @Param('challengeId') challengeId: string,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
     if (!CHALLENGE_ID_RE.test(challengeId)) {
       throw new BadRequestException('Invalid challenge id');
     }
-    const link = await this.getChallenge.execute(challengeId);
-    return ChallengeResponseDto.fromDomain(link);
+    const { body, contentType } = await this.getChallengeAudio.execute(challengeId, 'challenger');
+    void reply.header('Content-Type', contentType);
+    void reply.header('Cache-Control', 'public, max-age=300');
+    void reply.send(body);
+  }
+
+  @Get(':challengeId/response-audio')
+  @RateLimit({ max: 60, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Stream counter-submission audio after challenge is resolved' })
+  async responseAudio(
+    @Param('challengeId') challengeId: string,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    if (!CHALLENGE_ID_RE.test(challengeId)) {
+      throw new BadRequestException('Invalid challenge id');
+    }
+    const { body, contentType } = await this.getChallengeAudio.execute(challengeId, 'response');
+    void reply.header('Content-Type', contentType);
+    void reply.header('Cache-Control', 'public, max-age=300');
+    void reply.send(body);
+  }
+
+  @Get(':challengeId')
+  @ApiOperation({ summary: 'Fetch a persisted challenge with dossier summaries' })
+  @ApiOkResponse({ type: ChallengeDetailResponseDto })
+  async getOne(@Param('challengeId') challengeId: string): Promise<ChallengeDetailResponseDto> {
+    if (!CHALLENGE_ID_RE.test(challengeId)) {
+      throw new BadRequestException('Invalid challenge id');
+    }
+    const detail = await this.getChallengeDetail.execute(challengeId);
+    return ChallengeDetailResponseDto.fromDetail(detail);
   }
 
   @Post(':challengeId/open')
@@ -118,6 +153,7 @@ export class ChallengesController {
     await this.resolveChallenge.execute({
       challengeId,
       sessionId: session.id,
+      responseReportId: body.responseReportId,
       payload: body.payload,
     });
   }

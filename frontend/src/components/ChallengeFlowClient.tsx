@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { ChallengeCtaPanel } from '@/components/ChallengeCtaPanel';
 import { ChallengeNotice } from '@/components/ChallengeNotice';
+import { ChallengeStatusBlock } from '@/components/ChallengeStatusBlock';
+import { ChallengeVerdictPanel } from '@/components/ChallengeVerdictPanel';
 import { FooterLoreStrip } from '@/components/FooterLoreStrip';
 import { Navbar } from '@/components/Navbar';
 import { RivalResultCard } from '@/components/RivalResultCard';
@@ -16,39 +18,26 @@ import {
   type ChallengePerspective,
 } from '@/lib/challenge';
 import {
+  deriveChallengeReentryStatus,
+  shouldPollForChallengeResponse,
+} from '@/lib/challenge-reentry';
+import {
   challengeFromResponseDto,
   fetchChallengeById,
   isPersistedChallengeId,
   openChallenge,
-  resolveChallenge,
 } from '@/lib/challenge-api';
+import type { ChallengeResponseDto } from '@/lib/farts-api-types';
 import { fetchSponsorshipResolve } from '@/lib/sponsorship-api';
+
+const POLL_INTERVAL_MS = 20_000;
 
 interface ChallengeFlowClientProps {
   challenge: Challenge;
   perspective: ChallengePerspective;
-  /** True iff the URL's search params parsed cleanly to a Challenge. */
   hasValidParams: boolean;
 }
 
-/**
- * /challenge orchestrator.
- *
- * Wires the three reusable presentation pieces (notice / rival card / CTA
- * panel) and owns the analytics surface for the challenge loop. The page
- * renders the same UI for both sender preview and recipient view; the
- * `perspective` prop switches copy + CTA priority.
- *
- * Routing decisions:
- *   - Accept       → /analyze?path=record&<serialized challenge>
- *   - Fake         → /analyze?path=fake&<serialized challenge>
- *   - Back (recip) → /
- *   - Back (sender)→ /report?variant=<source>
- *
- * The challenge context (variant + score + id + type + source + issuedAt)
- * is appended to the analyze URL so /analyze can forward it to /report on
- * completion — that's the "challenge_context_forwarded" handoff.
- */
 export function ChallengeFlowClient({
   challenge: fallbackChallenge,
   perspective,
@@ -57,12 +46,28 @@ export function ChallengeFlowClient({
   const challengeId = fallbackChallenge.challengeId.trim();
   const shouldFetchPersisted = isPersistedChallengeId(challengeId);
 
-  const [loadedChallenge, setLoadedChallenge] = useState<Challenge | null>(null);
+  const [challengeDto, setChallengeDto] = useState<ChallengeResponseDto | null>(null);
   const [challengeLoadSettled, setChallengeLoadSettled] = useState(!shouldFetchPersisted);
-  const [resolveBusy, setResolveBusy] = useState(false);
-  const resolveInFlightRef = useRef(false);
+  const [refreshBusy, setRefreshBusy] = useState(false);
   const backendOpenRecordedRef = useRef<string | null>(null);
-  const canResolveBackend = shouldFetchPersisted && loadedChallenge !== null;
+
+  const loadChallenge = useCallback(async () => {
+    if (!shouldFetchPersisted) return null;
+    return fetchChallengeById(challengeId);
+  }, [challengeId, shouldFetchPersisted]);
+
+  const refreshChallenge = useCallback(async () => {
+    if (!shouldFetchPersisted) return;
+    setRefreshBusy(true);
+    try {
+      const dto = await loadChallenge();
+      if (dto) setChallengeDto(dto);
+    } catch {
+      // Keep last known state on refresh failure.
+    } finally {
+      setRefreshBusy(false);
+    }
+  }, [loadChallenge, shouldFetchPersisted]);
 
   useEffect(() => {
     backendOpenRecordedRef.current = null;
@@ -70,7 +75,7 @@ export function ChallengeFlowClient({
 
   useEffect(() => {
     if (!shouldFetchPersisted) {
-      setLoadedChallenge(null);
+      setChallengeDto(null);
       setChallengeLoadSettled(true);
       return;
     }
@@ -80,60 +85,66 @@ export function ChallengeFlowClient({
 
     void (async () => {
       try {
-        const dto = await fetchChallengeById(challengeId);
-        if (!cancelled) {
-          setLoadedChallenge(challengeFromResponseDto(dto));
-        }
+        const dto = await loadChallenge();
+        if (!cancelled) setChallengeDto(dto);
       } catch {
-        if (!cancelled) {
-          setLoadedChallenge(null);
-        }
+        if (!cancelled) setChallengeDto(null);
       } finally {
-        if (!cancelled) {
-          setChallengeLoadSettled(true);
-        }
+        if (!cancelled) setChallengeLoadSettled(true);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [challengeId, shouldFetchPersisted]);
+  }, [challengeId, loadChallenge, shouldFetchPersisted]);
+
+  const reentryStatus = useMemo(
+    () => deriveChallengeReentryStatus(challengeDto, challengeLoadSettled, perspective),
+    [challengeDto, challengeLoadSettled, perspective],
+  );
+
+  const pollForResponse = shouldPollForChallengeResponse(reentryStatus.phase, shouldFetchPersisted);
 
   useEffect(() => {
-    if (!shouldFetchPersisted || !challengeLoadSettled || !loadedChallenge) return;
+    if (!pollForResponse) return;
+
+    const tick = () => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      void refreshChallenge();
+    };
+
+    const id = window.setInterval(tick, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [pollForResponse, refreshChallenge]);
+
+  useEffect(() => {
+    if (!shouldFetchPersisted || !challengeLoadSettled || !challengeDto) return;
     if (backendOpenRecordedRef.current === challengeId) return;
+    if (perspective !== 'recipient') return;
+    if (reentryStatus.phase === 'verdict_ready') return;
     backendOpenRecordedRef.current = challengeId;
 
-    let cancelled = false;
-    void (async () => {
-      try {
-        const updated = await openChallenge(
-          challengeId,
-          JSON.stringify({ payload: { perspective, hasValidParams } }),
-          { contentType: 'application/json' },
-        );
-        if (!cancelled) {
-          setLoadedChallenge(challengeFromResponseDto(updated));
-        }
-      } catch {
-        // Non-blocking: challenge page remains usable on open-event failure.
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    void openChallenge(
+      challengeId,
+      JSON.stringify({ payload: { perspective, hasValidParams } }),
+      { contentType: 'application/json' },
+    ).catch(() => undefined);
   }, [
     challengeId,
     shouldFetchPersisted,
     challengeLoadSettled,
-    loadedChallenge,
+    challengeDto,
     perspective,
     hasValidParams,
+    reentryStatus.phase,
   ]);
 
-  const challenge = loadedChallenge ?? fallbackChallenge;
+  const challenge = challengeDto
+    ? challengeFromResponseDto(challengeDto)
+    : fallbackChallenge;
+
+  const showVerdict = reentryStatus.phase === 'verdict_ready';
 
   const [sponsorChallenge, setSponsorChallenge] = useState<
     { supportingLine?: string; placementId?: string } | undefined
@@ -149,20 +160,12 @@ export function ChallengeFlowClient({
       const supportingLine =
         typeof p.creative.supportingLine === 'string' ? p.creative.supportingLine : undefined;
       setSponsorChallenge({ supportingLine, placementId: p.placementId });
-      if (supportingLine) {
-        void track('sponsored_challenge_opened', {
-          challengeId: challenge.challengeId,
-          variantId: challenge.sourceVariantId,
-          placementId: p.placementId,
-        });
-      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [challenge.challengeId, challenge.sourceVariantId]);
+  }, []);
 
-  // Fire challenge_link_opened once per challenge id after fetch settles.
   const openedRef = useRef(false);
   useEffect(() => {
     openedRef.current = false;
@@ -185,16 +188,15 @@ export function ChallengeFlowClient({
 
   const serialized = useMemo(() => serializeChallenge(challenge).toString(), [challenge]);
   const acceptHref = `/analyze?path=record&${serialized}`;
-  const fakeHref = `/analyze?path=fake&${serialized}`;
-  const senderBackHref = `/report?variant=${encodeURIComponent(challenge.sourceVariantId)}`;
+  const senderBackHref = challengeDto?.reportId
+    ? `/report?reportId=${encodeURIComponent(challengeDto.reportId)}`
+    : `/report?variant=${encodeURIComponent(challenge.sourceVariantId)}`;
   const backHref = perspective === 'sender' ? senderBackHref : '/';
-  const recipientLink = useMemo(
-    () => createChallengeLink(challenge),
-    [challenge],
-  );
+  const recipientLink = useMemo(() => createChallengeLink(challenge), [challenge]);
+  const showRecordCta = reentryStatus.phase === 'waiting_for_response';
 
   const onCtaClicked = useCallback(
-    (cta: 'accept' | 'fake' | 'back_to_lab' | 'copy_link') => {
+    (cta: 'accept' | 'back_to_lab' | 'copy_link') => {
       track('challenge_cta_clicked', {
         cta,
         challengeId: challenge.challengeId,
@@ -207,38 +209,8 @@ export function ChallengeFlowClient({
 
   const onAcceptChallenge = useCallback(() => {
     onCtaClicked('accept');
-
-    const navigateToAccept = (target: Challenge) => {
-      const params = serializeChallenge(target).toString();
-      window.location.href = `/analyze?path=record&${params}`;
-    };
-
-    if (!canResolveBackend) {
-      navigateToAccept(challenge);
-      return;
-    }
-    if (resolveBusy || resolveInFlightRef.current) return;
-
-    resolveInFlightRef.current = true;
-    setResolveBusy(true);
-    void (async () => {
-      try {
-        const updated = await resolveChallenge(
-          challengeId,
-          JSON.stringify({ payload: { cta: 'accept', perspective } }),
-          { contentType: 'application/json' },
-        );
-        const resolved = challengeFromResponseDto(updated);
-        setLoadedChallenge(resolved);
-        navigateToAccept(resolved);
-      } catch {
-        navigateToAccept(challenge);
-      } finally {
-        resolveInFlightRef.current = false;
-        setResolveBusy(false);
-      }
-    })();
-  }, [canResolveBackend, challenge, challengeId, onCtaClicked, perspective, resolveBusy]);
+    window.location.href = acceptHref;
+  }, [acceptHref, onCtaClicked]);
 
   return (
     <>
@@ -252,36 +224,53 @@ export function ChallengeFlowClient({
           {...(sponsorChallenge ? { sponsorChallenge } : {})}
         />
 
-        {/* — Rival + CTA two-column — */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1], delay: 0.1 }}
-          className="mx-auto w-full max-w-7xl px-6 pb-16 pt-10 lg:px-10 lg:pb-24"
-        >
-          <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.5fr_1fr] lg:gap-12">
-            <RivalResultCard challenge={challenge} />
-            <ChallengeCtaPanel
-              challenge={challenge}
+        <div className="mt-6 space-y-6">
+          <ChallengeStatusBlock
+            status={reentryStatus}
+            onRefresh={pollForResponse ? () => void refreshChallenge() : undefined}
+            refreshBusy={refreshBusy}
+          />
+
+          {showVerdict && challengeDto ? (
+            <ChallengeVerdictPanel
+              challengeId={challengeId}
               perspective={perspective}
-              acceptHref={acceptHref}
-              fakeHref={fakeHref}
-              backHref={backHref}
-              {...(perspective === 'sender' ? { copyableLink: recipientLink } : {})}
-              onCtaClicked={onCtaClicked}
-              {...(canResolveBackend
-                ? {
-                    onAcceptChallenge,
-                    acceptDisabled: resolveBusy,
-                    acceptBusyLabel: resolveBusy ? 'Accepting…' : undefined,
-                  }
-                : {})}
+              challenger={challengeDto.challengerReport}
+              response={challengeDto.responseReport}
+              copyableLink={recipientLink}
             />
-          </div>
-        </motion.section>
+          ) : null}
+
+          {!showVerdict ? (
+            <motion.section
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.22, 0.61, 0.36, 1], delay: 0.1 }}
+              className="mx-auto w-full max-w-7xl px-6 pb-16 lg:px-10 lg:pb-24"
+            >
+              <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1.5fr_1fr] lg:gap-12">
+                <RivalResultCard
+                  challenge={challenge}
+                  challengerReport={challengeDto?.challengerReport}
+                />
+                <ChallengeCtaPanel
+                  challenge={challenge}
+                  perspective={perspective}
+                  reentryPhase={reentryStatus.phase}
+                  acceptHref={acceptHref}
+                  backHref={backHref}
+                  showRecordCta={showRecordCta}
+                  {...(perspective === 'sender' ? { copyableLink: recipientLink } : {})}
+                  onCtaClicked={onCtaClicked}
+                  onAcceptChallenge={onAcceptChallenge}
+                />
+              </div>
+            </motion.section>
+          ) : null}
+        </div>
 
         <FooterLoreStrip />
       </div>
     </>
   );
-}
+};

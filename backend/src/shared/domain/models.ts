@@ -100,6 +100,7 @@ export interface ChallengeLink {
   id: string;
   sessionId?: EntityId;
   reportId?: EntityId;
+  responseReportId?: EntityId;
   variantId: string;
   sourceScore: number;
   challengeType: string;

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppConfigModule } from '../../config/config.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
 import { IdentityModule } from '../identity/identity.module';
+import { AudioModule } from '../audio/audio.module';
 import { ReportsModule } from '../reports/reports.module';
 import { ReportArtifactEntity } from '../artifacts/infrastructure/persistence/report-artifact.entity';
 import { OpsKeyGuard } from '../ops/interface/http/ops-key.guard';
@@ -26,6 +27,7 @@ import { GalleryPublicController } from './interface/http/gallery-public.control
     AppConfigModule,
     AnalyticsModule,
     IdentityModule,
+    AudioModule,
     ReportsModule,
   ],
   controllers: [GalleryPublicController, GalleryOpsController],

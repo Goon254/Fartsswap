@@ -42,6 +42,11 @@ export class TypeOrmReportRepository implements ReportRepository {
     return row ? this.reportToDomain(row) : null;
   }
 
+  async findReportInputByReportId(reportId: string): Promise<ReportInput | null> {
+    const row = await this.inputsRepo().findOne({ where: { reportId } });
+    return row ? this.inputToDomain(row) : null;
+  }
+
   private reportToEntity(report: Report): ReportEntity {
     const entity = new ReportEntity();
     entity.id = report.id;
@@ -77,6 +82,19 @@ export class TypeOrmReportRepository implements ReportRepository {
     entity.source = input.source;
     entity.createdAt = new Date(input.createdAt);
     return entity;
+  }
+
+  private inputToDomain(entity: ReportInputEntity): ReportInput {
+    return {
+      id: entity.id,
+      reportId: entity.reportId,
+      audioUploadId: entity.audioUploadId,
+      customFartName: entity.customFartName,
+      tonePreset: entity.tonePreset,
+      durationMs: entity.durationMs,
+      source: entity.source as ReportInput['source'],
+      createdAt: entity.createdAt.toISOString(),
+    };
   }
 
   private reportToDomain(entity: ReportEntity): Report {

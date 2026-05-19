@@ -4,20 +4,22 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useState, type FC } from 'react';
 import { Button } from '@/components/Button';
 import type { Challenge, ChallengePerspective } from '@/lib/challenge';
+import type { ChallengeReentryPhase } from '@/lib/challenge-reentry';
 
 interface ChallengeCtaPanelProps {
   challenge: Challenge;
   perspective: ChallengePerspective;
+  reentryPhase: ChallengeReentryPhase;
+  /** When false, hide record CTA (e.g. verdict already filed). */
+  showRecordCta?: boolean;
   /** Where Accept routes to. */
   acceptHref: string;
-  /** Where Generate-a-fake-challenger routes to. */
-  fakeHref: string;
   /** Where Back / Back-to-dossier routes to. */
   backHref: string;
   /** For sender preview only: the full URL to copy. */
   copyableLink?: string;
   /** Analytics hook — passes the cta name back to the parent. */
-  onCtaClicked?: (cta: 'accept' | 'fake' | 'back_to_lab' | 'copy_link') => void;
+  onCtaClicked?: (cta: 'accept' | 'back_to_lab' | 'copy_link') => void;
   /** When set, Accept uses this handler instead of href navigation (persisted resolve flow). */
   onAcceptChallenge?: () => void;
   acceptDisabled?: boolean;
@@ -32,7 +34,6 @@ const EASE = [0.22, 0.61, 0.36, 1] as const;
  * Recipient mode:
  *   Primary  — Accept challenge → /analyze?path=record&… (with forwarded
  *              challenge context)
- *   Secondary — Generate a fake challenger → /analyze?path=fake&…
  *   Ghost    — Back to lab → /
  *
  * Sender mode (?from=mine, opens automatically when issuing a challenge):
@@ -46,8 +47,9 @@ const EASE = [0.22, 0.61, 0.36, 1] as const;
 export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
   challenge,
   perspective,
+  reentryPhase,
+  showRecordCta = true,
   acceptHref,
-  fakeHref,
   backHref,
   copyableLink,
   onCtaClicked,
@@ -95,8 +97,10 @@ export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
 
       <p className="text-sm leading-relaxed text-[var(--text-default)]">
         {isSender
-          ? 'Copy the docket URL and forward it to the nominee. Their counter-submission will be filed automatically beneath your case.'
-          : 'Open a recording chamber and produce a counter-submission. Synthetic challengers are accepted; the Bureau does not distinguish.'}
+          ? reentryPhase === 'waiting_for_response'
+            ? 'Copy the challenge link and send it to your rival. Re-open this same URL later to see their counter-specimen and the Bureau verdict.'
+            : 'Share this docket link with anyone who needs the latest challenge status.'
+          : 'Listen to the challenger specimen, then record your own counter-submission. The Bureau will file both dossiers.'}
       </p>
 
       <div className="grid grid-cols-1 gap-3">
@@ -121,21 +125,16 @@ export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
           </>
         ) : (
           <>
-            <AcceptChallengeButton
-              variant="primary"
-              acceptHref={acceptHref}
-              label={acceptBusyLabel ?? 'Accept challenge'}
-              disabled={acceptDisabled}
-              onAcceptChallenge={onAcceptChallenge}
-              onCtaClicked={onCtaClicked}
-            />
-            <Button
-              variant="secondary"
-              href={fakeHref}
-              onClick={() => onCtaClicked?.('fake')}
-            >
-              Generate a fake challenger
-            </Button>
+            {showRecordCta ? (
+              <AcceptChallengeButton
+                variant="primary"
+                acceptHref={acceptHref}
+                label={acceptBusyLabel ?? 'Record your counter-fart'}
+                disabled={acceptDisabled}
+                onAcceptChallenge={onAcceptChallenge}
+                onCtaClicked={onCtaClicked}
+              />
+            ) : null}
             <Button
               variant="ghost"
               href={backHref}
@@ -150,7 +149,7 @@ export const ChallengeCtaPanel: FC<ChallengeCtaPanelProps> = ({
       {isSender && copyableLink ? (
         <div className="rounded-sm border border-[var(--border-subtle)] bg-[var(--bg-panel-strong)] px-3 py-3">
           <div className="font-mono text-[0.55rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
-            DOCKET URL
+            CHALLENGE LINK · REUSE FOR VERDICT
           </div>
           <div className="mt-1 break-all font-mono text-[0.7rem] tracking-wide-2 text-[var(--text-default)]">
             {copyableLink}
@@ -219,7 +218,7 @@ const CopyButton: FC<{
       ? 'Link copied'
       : phase === 'error'
         ? 'Try again'
-        : 'Copy challenge link';
+        : 'Copy challenge link for rival';
 
   return (
     <Button

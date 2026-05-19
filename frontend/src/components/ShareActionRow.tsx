@@ -5,7 +5,7 @@ import type { FC } from 'react';
 import { Button } from '@/components/Button';
 
 interface ShareActionRowProps {
-  /** Called when "Generate another" is clicked. */
+  /** Called when "Record another" is clicked. */
   onGenerateAnother: () => void;
   /** Called when "Copy caption" is clicked. */
   onCopyCaption: () => void;
@@ -101,7 +101,7 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
           onClick={onChallengeClick}
           trailing={<Arrow />}
         >
-          Challenge a friend
+          Send challenge link
         </Button>
         <Button variant="secondary" onClick={onCopyCaption}>
           Copy caption
@@ -117,7 +117,7 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
           </Button>
         ) : null}
         <Button variant="secondary" onClick={onGenerateAnother}>
-          Generate another
+          Record another
         </Button>
         <div className="relative">
           <Button

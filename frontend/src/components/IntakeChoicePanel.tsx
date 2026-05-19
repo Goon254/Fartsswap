@@ -14,7 +14,7 @@ const EASE = [0.22, 0.61, 0.36, 1] as const;
 /**
  * Step 1 of the analyze flow — path selection.
  *
- * Two large path cards (Analyze My Fart, Generate a Fake One), a three-step
+ * Two large path cards (Record my fart, Try the demo), a three-step
  * "how this works" strip, and the detailed privacy notice. The two cards
  * are buttons (not links) so the flow stays in-page; AnalyzeFlowClient
  * handles the transition.
@@ -41,13 +41,15 @@ export const IntakeChoicePanel: FC<IntakeChoicePanelProps> = ({ onChoose }) => (
           </span>
           <span>BUREAU INTAKE TERMINAL · ACOUSTIC SUBMISSION</span>
         </div>
-        <h1 className="mt-4 max-w-[20ch] font-display text-[2.4rem] font-medium leading-[1.02] tracking-tight text-[var(--text-strong)] sm:text-[3rem] md:text-[3.6rem]">
-          Submit a sample.{' '}
-          <span className="italic text-[var(--accent-brass)]">Or invent one.</span>
+        <h1 className="mt-4 max-w-[22ch] font-display text-[2.4rem] font-medium leading-[1.02] tracking-tight text-[var(--text-strong)] sm:text-[3rem] md:text-[3.6rem]">
+          Real recording{' '}
+          <span className="italic text-[var(--accent-brass)]">or demo mode.</span>
         </h1>
         <p className="mt-5 max-w-[58ch] text-base leading-relaxed text-[var(--text-default)]">
-          The Bureau accepts captured emissions and synthetic submissions with equal seriousness.
-          Choose a route below. The full dossier is issued in under ten seconds either way.
+          <strong className="font-medium text-[var(--text-strong)]">Record my fart</strong> uses your
+          microphone, saves audio, and issues a dossier you can replay privately.{' '}
+          <strong className="font-medium text-[var(--text-strong)]">Try the demo</strong> skips the mic
+          and generates a joke dossier instantly — no specimen is stored.
         </p>
       </div>
       <Chip tone="brass">SESSION · ANONYMOUS</Chip>
@@ -59,12 +61,12 @@ export const IntakeChoicePanel: FC<IntakeChoicePanelProps> = ({ onChoose }) => (
         path="record"
         numeral="I"
         code="AGD-010 · RECORD"
-        title="Analyze my fart"
-        body="Capture a ten-second sample using the recording chamber. The Bureau will return a full dossier in approximately five seconds."
+        title="Record my fart"
+        body="Live path: capture ~10 seconds in-browser, get a persisted dossier, replay your specimen, challenge friends, optionally post to the moderated feed."
         bullets={[
-          'In-browser capture',
-          '10-second maximum',
-          'No public posting by default',
+          'Real microphone capture',
+          'Private replay on report',
+          'Challenge & feed optional',
         ]}
         ctaLabel="Open recording chamber"
         recommended
@@ -74,23 +76,23 @@ export const IntakeChoicePanel: FC<IntakeChoicePanelProps> = ({ onChoose }) => (
         path="fake"
         numeral="II"
         code="AGD-020 · SYNTHETIC"
-        title="Generate a fake one"
-        body="Skip capture. The Bureau will fabricate a dossier from the synthetic register. Outputs are indistinguishable from real ones."
+        title="Try the demo (no mic)"
+        body="Demo path: no audio saved. The Bureau issues a synthetic joke dossier so you can preview the experience without recording."
         bullets={[
-          'No microphone access',
-          'Instant submission',
-          'Dossier identical in form',
+          'No microphone needed',
+          'Instant fake dossier',
+          'Not a real specimen',
         ]}
-        ctaLabel="Issue a synthetic dossier"
+        ctaLabel="Generate demo dossier"
         onChoose={() => onChoose('fake')}
       />
     </div>
 
     {/* — "How this works" strip — */}
     <div className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[var(--border-subtle)] bg-[var(--border-subtle)] sm:grid-cols-3">
-      <HowStep numeral="I" label="CAPTURE" detail="A sample is acquired or synthesised." />
-      <HowStep numeral="II" label="ANALYZE" detail="FartGPT runs tonal inference against the register." />
-      <HowStep numeral="III" label="CLASSIFY" detail="A signed dossier is issued under Bureau authority." />
+      <HowStep numeral="I" label="RECORD" detail="Live mic or instant demo — your choice." />
+      <HowStep numeral="II" label="ANALYZE" detail="FartGPT issues a funny dossier in seconds." />
+      <HowStep numeral="III" label="SHARE" detail="Replay privately, challenge a friend, or post to the feed." />
     </div>
 
     {/* — Privacy panel — */}

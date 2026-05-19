@@ -38,26 +38,26 @@ export const SAMPLE_REPORT: PreviewReport = {
 
 export const HERO_INFO_STRIP = [
   {
-    label: 'NO LOGIN REQUIRED',
-    detail: 'Anonymous session by default.',
+    label: 'NO SIGNUP',
+    detail: 'Anonymous session. No account required.',
   },
   {
-    label: 'PRIVATE GENERATION, PUBLIC SHARING',
-    detail: 'Raw audio never leaves the lab. Only the dossier travels.',
+    label: 'PRIVATE BY DEFAULT',
+    detail: 'Replay your specimen on the dossier. Post to the feed only if you opt in.',
   },
   {
-    label: 'VERTICAL EXPORT',
-    detail: 'Pre-formatted for Stories, X, and TikTok.',
+    label: 'CHALLENGE & FEED',
+    detail: 'Send a challenge link. Rival records back. Public feed is moderated.',
   },
 ] as const;
 
 export const FEATURE_PANELS = [
   {
     numeral: 'I',
-    label: 'ANALYZE',
-    title: 'A 10-second sample is enough.',
-    body: 'Record in-browser or submit a pre-captured clip. Audio is processed against the Bureau\u2019s acoustic-gas register. Raw material is sealed; only metadata graduates to the report stage.',
-    spec: 'WAV / WEBM / OGG · 10s ceiling · client-side capture',
+    label: 'RECORD',
+    title: 'Capture a real specimen in ten seconds.',
+    body: 'Use your microphone in the browser. We store your clip, issue a funny AI dossier, and let you replay it privately on your report.',
+    spec: 'LIVE AUDIO · WEBM / OGG · ~10s max · no signup',
   },
   {
     numeral: 'II',
@@ -69,9 +69,9 @@ export const FEATURE_PANELS = [
   {
     numeral: 'III',
     label: 'SHARE',
-    title: 'A dossier engineered for screenshots.',
-    body: 'Export as a share card or a single-page PDF dossier. Each artifact carries a tamper-evident seal, an issued-on timestamp, and a Bureau case number. Friends will assume it is real for approximately four seconds.',
-    spec: 'Share card · PDF · case number · institutional seal',
+    title: 'Challenge, replay, or opt into the feed.',
+    body: 'Send a challenge link so your rival hears your fart and records a counter-specimen. Verdict compares scores. Post to the moderated public feed only when you choose.',
+    spec: 'Challenge link · private replay · opt-in feed · share card',
   },
 ] as const;
 

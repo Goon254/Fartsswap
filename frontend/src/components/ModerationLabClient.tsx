@@ -186,6 +186,11 @@ export function ModerationLabClient() {
               value={queueFilter}
               onChange={(e) => setQueueFilter(e.target.value)}
             />
+            <span className="mt-1 block font-mono text-[0.55rem] normal-case tracking-normal text-[var(--text-faint)]">
+              Use <code className="text-[var(--accent-brass)]">reported</code> for community-flagged
+              items still on the bulletin; <code className="text-[var(--accent-brass)]">remove</code> or{' '}
+              <code className="text-[var(--accent-brass)]">hide</code> to delist.
+            </span>
           </label>
 
           <label className="mt-4 block font-mono text-[0.6rem] uppercase tracking-wide-3 text-[var(--text-faint)]">

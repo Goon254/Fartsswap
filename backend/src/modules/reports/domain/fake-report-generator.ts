@@ -22,35 +22,45 @@ const CLASSIFICATIONS = [
   'Silent Assassin',
   'Thunderclap 3000',
   'The Philosopher',
-  'Gaslight Sonata',
   'Bean Incident',
-  'Melancholy Jazz Fusion',
-  'Bass Boosted Bureaucrat',
+  'Revenge Takeout Tier',
+  'Dairy Tribunal',
+  'Midnight Refried Regret',
   'Velvet Foghorn',
 ] as const;
 
 const EMOTIONAL_TONES = [
-  'Wistful defiance',
-  'Triumphant resignation',
-  'Suspiciously optimistic',
+  'Defiantly unrepentant',
+  'Suddenly aware of lunch',
+  'Suspiciously dairy-forward',
   'Acoustically contrite',
-  'Unlicensed confidence',
+  'Triumphant after questionable choices',
 ] as const;
 
 const PROBABLE_CAUSES = [
-  'Questionable chili diplomacy',
-  'Late-night legume symposium',
-  'Elevator silence pressure',
-  'Aggressive meal prep',
-  'Unfinished business with broccoli',
+  'Forensic conclusion: you ate something that fought back',
+  'Last night\'s takeout filed a noise complaint',
+  'Beans introduced without a permit',
+  'The Bureau asks: what did you eat?',
+  'Aggressive meal prep with legume intent',
+  'Dairy entered the chat around 9pm',
 ] as const;
 
 const CINEMATIC_PARALLELS = [
-  'The opening shot of a submarine thriller',
-  'A deleted scene from a courtroom drama',
+  'A food-documentary narrator losing composure',
   'The third act of a heist film nobody funded',
-  'A Werner Herzog narration over fog',
-  'The Wilhelm scream, but tired',
+  'A submarine thriller with suspicious lunch',
+  'A courtroom drama about portion control',
+  'The Wilhelm scream, but after onion rings',
+] as const;
+
+const FUNNY_FART_NAMES = [
+  'The Midnight Bean Verdict',
+  'Operation Refried Regret',
+  'The Dairy Tribunal',
+  'Suspicious Chili Diplomacy',
+  'The Elevator Incident',
+  'The 3am Takeout Confession',
 ] as const;
 
 const THREAT_LEVELS = ['Green', 'Amber', 'Red', 'Cerulean'] as const;
@@ -86,7 +96,8 @@ export function generateFakeReportFields(input: FakeReportGenerationInput): Fake
   const seed = input.seed ?? `${Date.now()}-${Math.random()}`;
   const base = hashSeed(seed);
   const trimmed = input.customFartName?.trim();
-  const fartName = trimmed && trimmed.length > 0 ? trimmed : `Emission ${base % 9000 + 1000}`;
+  const fartName =
+    trimmed && trimmed.length > 0 ? trimmed : pick(FUNNY_FART_NAMES, base >> 2);
   const classification = pick(CLASSIFICATIONS, base);
   const powerScore = (base % 101);
   const durationMs = 800 + (base % 4200);

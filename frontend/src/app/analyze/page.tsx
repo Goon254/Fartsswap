@@ -3,9 +3,9 @@ import { Suspense } from 'react';
 import { AnalyzeFlowClient } from '@/components/AnalyzeFlowClient';
 
 export const metadata: Metadata = {
-  title: 'Bureau Intake Terminal',
+  title: 'Record or demo · Bureau Intake',
   description:
-    'Submit a captured sample or generate a synthetic one. The Bureau will issue a full classification dossier within ten seconds.',
+    'Record a real fart for a persisted dossier and private replay, or try the no-mic demo. Anonymous, no signup.',
 };
 
 /**

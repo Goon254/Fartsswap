@@ -12,6 +12,8 @@ import { Navbar } from '@/components/Navbar';
 import { ResultHeader } from '@/components/ResultHeader';
 import { ResultHero } from '@/components/ResultHero';
 import { ShareActionRow } from '@/components/ShareActionRow';
+import { GalleryFeedSubmit } from '@/components/GalleryFeedSubmit';
+import { SpecimenPlayback } from '@/components/SpecimenPlayback';
 import { VariantSwitcher } from '@/components/VariantSwitcher';
 import { createReportArtifact, rewriteArtifactContentUrlToProxy } from '@/lib/artifact-api';
 import { pageView, track } from '@/lib/analytics';
@@ -103,6 +105,14 @@ function mergeServerReportIntoVariant(
   }
   if (isNonEmptyString(report.fartHash)) {
     next = { ...next, reportHash: report.fartHash.trim() };
+  }
+  if (isNonEmptyString(report.probableCause)) {
+    const punch = [report.probableCause.trim(), report.emotionalTone?.trim()]
+      .filter(Boolean)
+      .join(' ');
+    if (punch) {
+      next = { ...next, shortSummary: punch.slice(0, 220) };
+    }
   }
 
   return next;
@@ -377,6 +387,10 @@ export function ReportResultClient({
     }
 
     let cancelled = false;
+    if (serverReport?.source !== 'audio_recording' || serverReport.playbackAvailable !== true) {
+      return;
+    }
+
     const body = buildCreateChallengeBody(challengeDraft, persistedReportId);
 
     void (async () => {
@@ -404,7 +418,7 @@ export function ReportResultClient({
     };
     // Register once per persisted report; variant switcher must not re-post challenges.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- challengeDraft is read at registration time only
-  }, [persistedReportId]);
+  }, [persistedReportId, serverReport?.source, serverReport?.playbackAvailable]);
 
   const challenge = persistedReportId
     ? (registeredChallenge ?? challengeDraft)
@@ -468,6 +482,23 @@ export function ReportResultClient({
           <AnimatePresence mode="wait" initial={false}>
             <ResultHero key={`hero-${variant.id}`} variant={variant} />
           </AnimatePresence>
+
+          {persistedReportId && serverReport?.playbackAvailable === true ? (
+            <div className="mt-6">
+              <SpecimenPlayback
+                reportId={persistedReportId}
+                audioContentType={serverReport.audioContentType}
+              />
+            </div>
+          ) : null}
+
+          {persistedReportId &&
+          serverReport?.source === 'audio_recording' &&
+          serverReport.playbackAvailable === true ? (
+            <div className="mt-6">
+              <GalleryFeedSubmit reportId={persistedReportId} />
+            </div>
+          ) : null}
 
           <ShareActionRow
             onGenerateAnother={onGenerateAnother}

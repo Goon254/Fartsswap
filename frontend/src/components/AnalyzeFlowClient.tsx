@@ -18,6 +18,7 @@ import {
   serializeChallenge,
   type Challenge,
 } from '@/lib/challenge';
+import { isPersistedChallengeId, resolveChallenge } from '@/lib/challenge-api';
 import {
   createReportFromAudio,
   FartsApiError,
@@ -109,14 +110,36 @@ export function AnalyzeFlowClient() {
 
     const challenge = challengeRef.current;
     if (challenge) {
-      const cParams = serializeChallenge(challenge);
-      cParams.forEach((value, key) => params.set(key, value));
       track('challenge_context_forwarded', {
         challengeId: challenge.challengeId,
         sourceVariantId: challenge.sourceVariantId,
         sourceScore: challenge.sourceScore,
         targetSurface: 'report',
       });
+
+      if (
+        reportId &&
+        isPersistedChallengeId(challenge.challengeId) &&
+        captureMode === 'live'
+      ) {
+        void (async () => {
+          try {
+            await resolveChallenge(challenge.challengeId, {
+              responseReportId: reportId,
+              payload: { surface: 'analyze_counter_submission' },
+            });
+          } catch {
+            // Still route to verdict so the user can copy the link.
+          }
+          const verdictParams = serializeChallenge(challenge);
+          verdictParams.set('view', 'verdict');
+          router.push(`/challenge?${verdictParams.toString()}`);
+        })();
+        return;
+      }
+
+      const cParams = serializeChallenge(challenge);
+      cParams.forEach((value, key) => params.set(key, value));
     }
 
     router.push(`/report?${params.toString()}`);

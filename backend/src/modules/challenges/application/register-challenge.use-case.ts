@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { ReportSource } from '../../../shared/domain/types';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { ChallengeLink } from '../../../shared/domain/models';
@@ -35,6 +42,11 @@ export class RegisterChallengeUseCase {
       if (report.sessionId && command.sessionId && report.sessionId !== command.sessionId) {
         throw new ForbiddenException('Report does not belong to this session');
       }
+      if (report.source !== ReportSource.AUDIO_RECORDING) {
+        throw new BadRequestException(
+          'challenges require a real audio specimen report (not demo/fake)',
+        );
+      }
     }
 
     const issuedAt = new Date(command.issuedAt);
@@ -45,6 +57,10 @@ export class RegisterChallengeUseCase {
     const existing = await this.links.findOne({ where: { id: command.id } });
     const now = this.clock.now();
     if (existing) {
+      if (command.reportId && !existing.reportId) {
+        existing.reportId = command.reportId;
+        await this.links.save(existing);
+      }
       return this.toDomain(existing);
     }
 
@@ -68,6 +84,7 @@ export class RegisterChallengeUseCase {
       id: entity.id,
       sessionId: entity.sessionId,
       reportId: entity.reportId,
+      responseReportId: entity.responseReportId,
       variantId: entity.variantId,
       sourceScore: entity.sourceScore,
       challengeType: entity.challengeType,

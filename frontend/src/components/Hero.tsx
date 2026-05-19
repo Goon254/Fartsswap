@@ -41,23 +41,25 @@ export const Hero: FC = () => (
           variants={fadeUp}
           transition={transitionBrand}
           className={[
-            'mt-7 max-w-[18ch] font-display text-[2.6rem] font-medium leading-[1.02] tracking-tight',
+            'mt-7 max-w-[20ch] font-display text-[2.6rem] font-medium leading-[1.02] tracking-tight',
             'text-[var(--text-strong)] text-shadow-glow',
-            'sm:text-[3.4rem] md:text-[3.9rem] lg:max-w-[16ch] lg:text-[4.4rem] xl:text-[5rem]',
+            'sm:text-[3.4rem] md:text-[3.9rem] lg:max-w-[18ch] lg:text-[4.2rem] xl:text-[4.8rem]',
           ].join(' ')}
         >
-          The world{'\u2019'}s first <span className="italic text-[var(--accent-brass)]">AI-powered</span>{' '}
-          fart diagnostic lab.
+          Record a fart. Get a{' '}
+          <span className="italic text-[var(--accent-brass)]">funny AI dossier</span>. Challenge
+          anyone.
         </motion.h1>
 
         {/* Support */}
         <motion.p
           variants={fadeUp}
           transition={transitionBrand}
-          className="mt-7 max-w-[44ch] text-base leading-relaxed text-[var(--text-default)] sm:text-lg"
+          className="mt-7 max-w-[48ch] text-base leading-relaxed text-[var(--text-default)] sm:text-lg"
         >
-          Record a fart. Receive a clinically unnecessary report. Share responsibly. Generated under
-          the authority of the Bureau of Acoustic Gasology, Station OPS-04.
+          Ten-second capture, instant Bureau classification, private replay on your report, challenge
+          links with a winner/loser verdict, and an opt-in moderated public feed. No account
+          required.
         </motion.p>
 
         {/* CTAs — both link into the multistep /analyze flow; the path query
@@ -74,14 +76,14 @@ export const Hero: FC = () => (
             onClick={() => track('landing_cta_click', { cta: 'analyze' })}
             trailing={<Arrow />}
           >
-            Analyze My Fart
+            Record my fart
           </Button>
           <Button
             variant="secondary"
             href="/analyze?path=fake"
             onClick={() => track('landing_cta_click', { cta: 'fake' })}
           >
-            Generate a Fake One
+            Try demo (no mic)
           </Button>
         </motion.div>
 
@@ -90,7 +92,16 @@ export const Hero: FC = () => (
           transition={transitionBrand}
           className="mt-4 font-mono text-[0.62rem] uppercase tracking-wide-3 text-[var(--text-muted)]"
         >
-          No medical value · Immense cultural value · Ten-second ceiling per sample
+          Anonymous by default · Private unless you post · No signup
+        </motion.p>
+
+        <motion.p variants={fadeUp} transition={transitionBrand} className="mt-3">
+          <a
+            href="/feed"
+            className="font-mono text-[0.65rem] uppercase tracking-wide-2 text-[var(--accent-brass)] underline-offset-2 hover:underline"
+          >
+            Browse the public feed →
+          </a>
         </motion.p>
 
         {/* Lower info strip */}

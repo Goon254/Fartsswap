@@ -152,9 +152,8 @@ function deriveDurationMs(request: AiReportRequest, fallback: FakeReportFields):
 
 function deriveDefaultSummary(fallback: FakeReportFields): string {
   return [
-    `${fallback.classification}.`,
-    `${fallback.emotionalTone}.`,
-    `Threat level ${fallback.threatLevel}.`,
+    `The Bureau has questions about your lunch.`,
+    `${fallback.probableCause}`,
   ].join(' ');
 }
 

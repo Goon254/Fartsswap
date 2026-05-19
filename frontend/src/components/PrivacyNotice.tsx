@@ -25,7 +25,7 @@ export const PrivacyNotice: FC<PrivacyNoticeProps> = ({ variant = 'compact' }) =
         ].join(' ')}
       >
         <Shield />
-        <span>Microphone active only during capture. No public posting by default.</span>
+        <span>Mic on only while recording. Private by default — post to the feed only if you opt in.</span>
       </div>
     );
   }
@@ -50,7 +50,7 @@ export const PrivacyNotice: FC<PrivacyNoticeProps> = ({ variant = 'compact' }) =
         </li>
         <li className="flex gap-2">
           <Bullet />
-          <span>Sample is processed for analysis only. <em className="text-[var(--text-strong)] not-italic">No retention</em> beyond this session.</span>
+          <span>Live recordings can be <em className="text-[var(--text-strong)] not-italic">replayed privately</em> on your dossier when the chamber keeps them.</span>
         </li>
         <li className="flex gap-2">
           <Bullet />

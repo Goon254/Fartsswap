@@ -5,11 +5,15 @@ import type { FC } from 'react';
 import { Chip } from '@/components/Chip';
 import { Seal } from '@/components/Seal';
 import { Waveform } from '@/components/Waveform';
+import { ChallengeSpecimenAudio } from '@/components/ChallengeSpecimenAudio';
+import { buildChallengeChallengerAudioUrl } from '@/lib/challenge-api';
 import type { Challenge } from '@/lib/challenge';
+import type { ChallengeReportSummaryDto } from '@/lib/farts-api-types';
 import { getVariantById, type ThreatLevel } from '@/lib/result-variants';
 
 interface RivalResultCardProps {
   challenge: Challenge;
+  challengerReport?: ChallengeReportSummaryDto;
 }
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -23,9 +27,14 @@ const EASE = [0.22, 0.61, 0.36, 1] as const;
  * challenge: classification, score, threat, hash, mini waveform, plus a
  * small "ARTIFACT IN DISPUTE" stamp to reinforce the framing.
  */
-export const RivalResultCard: FC<RivalResultCardProps> = ({ challenge }) => {
+export const RivalResultCard: FC<RivalResultCardProps> = ({ challenge, challengerReport }) => {
   const variant = getVariantById(challenge.sourceVariantId);
-  const threatTone = THREAT_TONES[variant.threatLevel];
+  const displayName = challengerReport?.fartName ?? variant.subjectTitle;
+  const classification = challengerReport?.classification ?? variant.classification;
+  const powerScore = challengerReport?.powerScore ?? challenge.sourceScore;
+  const probableCause = challengerReport?.probableCause;
+  const threatLevel = (challengerReport?.threatLevel ?? variant.threatLevel) as ThreatLevel;
+  const threatTone = THREAT_TONES[threatLevel] ?? 'amber';
 
   return (
     <motion.article
@@ -54,18 +63,24 @@ export const RivalResultCard: FC<RivalResultCardProps> = ({ challenge }) => {
             CLASSIFICATION
           </div>
           <h2 className="mt-1 truncate font-display text-2xl leading-tight tracking-tight text-[var(--text-strong)] sm:text-3xl">
-            {variant.classification}
+            {classification}
           </h2>
 
           <div className="mt-3 font-mono text-[0.6rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
             SUBJECT
           </div>
           <div className="truncate text-base italic text-[var(--text-default)]">
-            {variant.subjectTitle}
+            {displayName}
           </div>
 
+          {probableCause ? (
+            <p className="mt-3 font-mono text-[0.68rem] leading-relaxed text-[var(--text-muted)]">
+              {probableCause}
+            </p>
+          ) : null}
+
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Chip tone={threatTone}>THREAT · {variant.threatLevel.toUpperCase()}</Chip>
+            <Chip tone={threatTone}>THREAT · {threatLevel.toUpperCase()}</Chip>
             <Chip tone="neutral">CONFIDENCE · {variant.confidenceLabel.toUpperCase()}</Chip>
             {variant.genre ? <Chip tone="brass">{variant.genre.toUpperCase()}</Chip> : null}
           </div>
@@ -77,7 +92,7 @@ export const RivalResultCard: FC<RivalResultCardProps> = ({ challenge }) => {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-display text-5xl leading-none tracking-tight text-[var(--text-strong)]">
-              {String(challenge.sourceScore).padStart(2, '0')}
+              {String(powerScore).padStart(2, '0')}
             </span>
             <span className="font-mono text-[0.6rem] uppercase tracking-wide-2 text-[var(--text-muted)]">
               / 100
@@ -92,14 +107,23 @@ export const RivalResultCard: FC<RivalResultCardProps> = ({ challenge }) => {
         </div>
       </div>
 
-      {/* — Waveform — */}
-      <div className="border-t border-[var(--border-subtle)] px-6 pb-4 pt-3">
-        <div className="mb-2 flex items-center justify-between font-mono text-[0.55rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
-          <span>AGD-401 · SIGNAL TRACE</span>
-          <span>{(variant.durationMs / 1000).toFixed(2)}s · MONO</span>
+      {challengerReport?.playbackAvailable ? (
+        <div className="border-t border-[var(--border-subtle)] px-6 pb-4 pt-1">
+          <ChallengeSpecimenAudio
+            label="Hear challenger specimen"
+            src={buildChallengeChallengerAudioUrl(challenge.challengeId)}
+            audioContentType={challengerReport.audioContentType}
+          />
         </div>
-        <Waveform bars={56} seed={variant.waveformSeed} />
-      </div>
+      ) : (
+        <div className="border-t border-[var(--border-subtle)] px-6 pb-4 pt-3">
+          <div className="mb-2 flex items-center justify-between font-mono text-[0.55rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
+            <span>AGD-401 · SIGNAL TRACE</span>
+            <span>{(variant.durationMs / 1000).toFixed(2)}s · MONO</span>
+          </div>
+          <Waveform bars={56} seed={variant.waveformSeed} />
+        </div>
+      )}
 
       {/* — Footer hash + issued strip — */}
       <div className="flex flex-col gap-1 border-t border-[var(--border-subtle)] bg-[var(--bg-panel-strong)] px-6 py-3 text-[0.6rem] sm:flex-row sm:items-center sm:justify-between">

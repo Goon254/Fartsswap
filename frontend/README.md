@@ -54,7 +54,11 @@ npm run build       # next build
 
 Copy `frontend/.env.example` to `frontend/.env.local` for local overrides.
 
+**Staging / launch:** See [`LAUNCH.md`](./LAUNCH.md) for env tables, untracked critical paths, ops moderation flow, and manual smoke tests.
+
 **Session cookies:** Integrated BFF handlers forward the browser `Cookie` header to the API and pass through upstream `Set-Cookie`. Users should hit **only the Next.js origin** in the browser; do not point the client at the API host directly for these flows.
+
+**Private specimen playback:** `/report?reportId=…` can show a session-only `<audio>` block when the API sets `playbackAvailable: true`. The browser loads same-origin `GET /api/reports/:id/audio` (BFF → Nest). On the API, keep `AUDIO_AUTO_DELETE_AFTER_PROCESSING=false` (default) so raw uploads remain in object storage after dossier creation; if set to `true`, playback and feed audio will fail after processing by design.
 
 ## Backend proxy (BFF)
 
@@ -67,6 +71,7 @@ Same-origin App Router handlers forward requests to `/api/v1/...` on the Nest AP
 | `POST /api/audio/uploads` | `POST /api/v1/audio/uploads` | `uploadAudio` — `src/lib/report-from-recording-api.ts` |
 | `POST /api/reports/from-audio` | `POST /api/v1/reports/from-audio` | `createReportFromAudio` |
 | `GET /api/reports/[reportId]` | `GET /api/v1/reports/:id` | `fetchReportById` |
+| `GET /api/reports/[reportId]/audio` | `GET /api/v1/reports/:id/audio` | `buildReportAudioPlaybackUrl` — session-private specimen replay on `/report` |
 | `POST /api/reports/[reportId]/artifacts/[[...path]]` | `POST /api/v1/reports/:id/artifacts/...` | `createReportArtifact` — `src/lib/artifact-api.ts` |
 | `GET /api/artifacts/[[...path]]` | `GET /api/v1/artifacts/...` | `fetchArtifactByPath`, `rewriteArtifactContentUrlToProxy` |
 | `POST /api/reports/[reportId]/shares` | `POST /api/v1/reports/:id/shares` | `createReportShareLink` — `src/lib/share-api.ts` |
@@ -74,10 +79,20 @@ Same-origin App Router handlers forward requests to `/api/v1/...` on the Nest AP
 | `GET /api/challenges/[challengeId]` | `GET /api/v1/challenges/:id` | `fetchChallengeById` |
 | `POST /api/challenges/[challengeId]/open` | `POST /api/v1/challenges/:id/open` | `openChallenge` |
 | `POST /api/challenges/[challengeId]/resolve` | `POST /api/v1/challenges/:id/resolve` | `resolveChallenge` |
+| `GET /api/challenges/[challengeId]/challenger-audio` | `GET /api/v1/challenges/:id/challenger-audio` | challenge dossier playback (public, challenge-scoped) |
+| `GET /api/challenges/[challengeId]/response-audio` | `GET /api/v1/challenges/:id/response-audio` | counter-specimen playback |
 | `POST /api/premium/intents` | `POST /api/v1/premium/intents` | `recordPremiumIntent` — `src/lib/premium-api.ts` |
 | `POST /api/analytics/events` | `POST /api/v1/analytics/events` | `track` / `pageView` — `src/lib/analytics.ts` (default transport) |
+| `GET /api/gallery/feed` | `GET /api/v1/gallery/feed` | `fetchPublicFeed` — `src/lib/gallery-api.ts` |
+| `GET /api/gallery/feed/[submissionId]/audio` | `GET /api/v1/gallery/feed/:id/audio` | `buildGalleryFeedAudioUrl` — published feed audio only |
+| `POST /api/gallery/submissions` | `POST /api/v1/gallery/submissions` | `submitReportToGallery` |
+| `POST /api/gallery/reports` | `POST /api/v1/gallery/reports` | `fileGalleryFeedReport` — anonymous session, one report per item |
+| `GET /api/gallery/submissions/by-report/[reportId]` | same upstream | `fetchGallerySubmissionForReport` |
+| `POST /api/ops/gallery/*` | `POST /api/v1/ops/gallery/*` | `/moderation-lab` — requires `x-ops-key` / `OPS_CONSOLE_SECRET` |
 
 Types shared with the API live in `src/lib/farts-api-types.ts`.
+
+**Public feed:** Page `/feed` lists operator-published gallery items. API must set `GALLERY_PUBLIC_FEED_ENABLED=true` and `GALLERY_SUBMISSIONS_ENABLED=true`. Users opt in from `/report` (“Post to public feed” on audio dossiers); ops approve + publish via `/moderation-lab` (`approve` then `publish`). Viewers can **Report specimen** on `/feed` (no account). Public feed audio uses submission-scoped URLs, not private report playback routes.
 
 Older lab/ops proxies under `src/app/api/ops/`, `gallery/`, etc. may use inline `FARTS_API_BASE_URL ?? http://127.0.0.1:3000` — still set `FARTS_API_BASE_URL` in staging so nothing points at localhost.
 
@@ -89,16 +104,16 @@ Older lab/ops proxies under `src/app/api/ops/`, `gallery/`, etc. may use inline 
 
 ## Staging deployment checklist
 
-Manual verification before calling staging “ready”:
+Full tables and commit scope: **[`LAUNCH.md`](./LAUNCH.md)**. Quick pass:
 
-1. **Config:** `FARTS_API_BASE_URL` set on the Next server to the reachable API origin; rebuild/restart after env changes.
-2. **Record → report:** `/analyze` → live capture → analysis → land on `/report?reportId=…` with merged dossier fields.
-3. **Share card:** On a persisted report, “Save share card” opens proxied artifact content (session cookie present).
-4. **Share link:** “Copy share link” copies a `/report?reportId=…&share=…` URL.
-5. **Challenge:** From report, open challenge link; persisted `ch_…` id loads, open/resolve events do not break UX; accept navigates to analyze with context.
-6. **Premium intent:** “Upgrade to Official PDF” still navigates to `/premium`; intent POST succeeds in network tab (non-blocking on failure).
-7. **Analytics:** DevTools → `POST /api/analytics/events` returns 2xx; optional override via `NEXT_PUBLIC_ANALYTICS_ENDPOINT` still works if set.
-8. **Cookies:** Anonymous session cookie set on first API-touching action; subsequent BFF calls include `Cookie`.
+1. **Commit** all untracked BFF/UI paths listed in `LAUNCH.md` (feed, playback, challenge audio, gallery).
+2. **API env:** `SESSION_COOKIE_SECRET`, `OPS_CONSOLE_SECRET`, `AUDIO_AUTO_DELETE_AFTER_PROCESSING=false`, `GALLERY_*` as needed; run DB migrations.
+3. **Next env:** `FARTS_API_BASE_URL`, optional `OPS_CONSOLE_SECRET` for moderation lab BFF.
+4. **Record → report:** Live capture → `/report?reportId=…` + private playback.
+5. **Challenge:** Link → counter-record → verdict; challenger/response audio on challenge page.
+6. **Feed:** Opt-in → ops approve/publish → `/feed` + report specimen + delist via ops `remove`/`hide`.
+7. **Share / premium / analytics:** Share card, share link, premium intent POST, analytics 2xx.
+8. **HTTPS** for microphone in non-local staging.
 
 ## Intentionally incomplete (not staging blockers for core loop)
 

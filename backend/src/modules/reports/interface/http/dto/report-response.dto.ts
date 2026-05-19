@@ -56,9 +56,20 @@ export class ReportResponseDto {
   @ApiPropertyOptional()
   completedAt?: string;
 
-  static fromDomain(report: Report): ReportResponseDto {
+  @ApiPropertyOptional({
+    description: 'True when this session may replay the original upload via GET /reports/:id/audio',
+  })
+  playbackAvailable?: boolean;
+
+  @ApiPropertyOptional({ description: 'MIME type for private playback when available' })
+  audioContentType?: string;
+
+  static fromDomain(
+    report: Report,
+    extras?: Pick<ReportResponseDto, 'playbackAvailable' | 'audioContentType'>,
+  ): ReportResponseDto {
     const dto = new ReportResponseDto();
-    Object.assign(dto, report);
+    Object.assign(dto, report, extras);
     return dto;
   }
 }

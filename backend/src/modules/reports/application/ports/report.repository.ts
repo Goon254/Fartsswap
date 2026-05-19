@@ -5,6 +5,7 @@ export interface ReportRepository {
   saveReportInput(input: ReportInput): Promise<void>;
   findReportById(id: string): Promise<Report | null>;
   findReportByPublicSlug(slug: string): Promise<Report | null>;
+  findReportInputByReportId(reportId: string): Promise<ReportInput | null>;
 }
 
 export const REPORT_REPOSITORY = Symbol('REPORT_REPOSITORY');

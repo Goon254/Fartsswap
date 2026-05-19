@@ -11,6 +11,9 @@ export class ChallengeLinkEntity {
   @Column({ name: 'report_id', type: 'uuid', nullable: true })
   reportId?: string;
 
+  @Column({ name: 'response_report_id', type: 'uuid', nullable: true })
+  responseReportId?: string;
+
   @Column({ name: 'variant_id', length: 128 })
   variantId!: string;
 

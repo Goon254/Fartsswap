@@ -13,16 +13,6 @@ export const metadata: Metadata = {
     'A diagnostic event has been entered into competitive review. Counter-submission authorized.',
 };
 
-/**
- * /challenge — challenge link experience.
- *
- * Reads challenge params from the URL on the server, falls back to a
- * deterministic mock when missing/invalid, and hands a fully resolved
- * `Challenge` to the client. The Suspense boundary is required by Next 15
- * for descendants that use `useSearchParams` (we don't currently, but
- * keeping it here means we can adopt that pattern later without a
- * boundary refactor).
- */
 interface ChallengePageProps {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }

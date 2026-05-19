@@ -151,6 +151,10 @@ export interface EventMap {
   gallery_item_removed: { submissionId: string; reasonCode?: string };
   gallery_item_featured: { submissionId: string; featuredRank: number };
   moderation_lab_view: Record<string, never>;
+  /** Public moderated specimen feed page. */
+  feed_view: Record<string, never>;
+  gallery_feed_submit_clicked: { reportId: string };
+  gallery_feed_report_clicked: { submissionId: string; reasonCode: string };
 
   fulfillment_lab_view: Record<string, never>;
   /** Internal plans + entitlements lab (operator-only). */

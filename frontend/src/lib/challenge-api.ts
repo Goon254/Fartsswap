@@ -108,22 +108,38 @@ export async function openChallenge(
   return fetchChallengeById(id);
 }
 
+export interface ResolveChallengeInput {
+  responseReportId: string;
+  payload?: Record<string, unknown>;
+}
+
 export async function resolveChallenge(
   challengeId: string,
-  body?: BodyInit | null,
+  input: ResolveChallengeInput,
   options?: ChallengeRequestOptions,
 ): Promise<ChallengeResponseDto> {
   const id = requireChallengeId(challengeId);
-  const headers = buildPostHeaders(options);
+  const headers = buildPostHeaders({ ...options, contentType: 'application/json' });
 
   const res = await fetch(`/api/challenges/${encodeURIComponent(id)}/resolve`, {
     method: 'POST',
-    ...(Object.keys(headers).length > 0 ? { headers } : {}),
-    body: body ?? undefined,
+    headers,
+    body: JSON.stringify({
+      responseReportId: input.responseReportId,
+      payload: input.payload,
+    }),
     credentials: 'include',
     cache: 'no-store',
   });
 
   await assertNoContent(res);
   return fetchChallengeById(id);
+}
+
+export function buildChallengeChallengerAudioUrl(challengeId: string): string {
+  return `/api/challenges/${encodeURIComponent(requireChallengeId(challengeId))}/challenger-audio`;
+}
+
+export function buildChallengeResponseAudioUrl(challengeId: string): string {
+  return `/api/challenges/${encodeURIComponent(requireChallengeId(challengeId))}/response-audio`;
 }

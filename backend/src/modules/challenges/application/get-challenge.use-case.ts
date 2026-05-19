@@ -19,6 +19,7 @@ export class GetChallengeUseCase {
       id: row.id,
       sessionId: row.sessionId,
       reportId: row.reportId,
+      responseReportId: row.responseReportId,
       variantId: row.variantId,
       sourceScore: row.sourceScore,
       challengeType: row.challengeType,

@@ -123,3 +123,10 @@ export async function fetchReportById(reportId: string): Promise<ReportResponseD
 
   return assertOk<ReportResponseDto>(res);
 }
+
+/** Same-origin private playback URL (session cookie required). */
+export function buildReportAudioPlaybackUrl(reportId: string): string {
+  const id = reportId.trim();
+  if (!id) throw new Error('Missing report id');
+  return `/api/reports/${encodeURIComponent(id)}/audio`;
+}
