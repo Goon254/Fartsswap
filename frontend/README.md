@@ -37,6 +37,19 @@ npm run lint        # next lint
 npm run build       # next build (also runs typecheck)
 ```
 
+## Backend proxy (BFF)
+
+Same-origin App Router handlers forward selected routes to the Nest API. Set **`FARTS_API_BASE_URL`** to the backend origin (for example `http://127.0.0.1:3000` if the API listens there). In **production** this variable is required; in local dev it defaults to `http://127.0.0.1:3000` when unset (run Next on another port, e.g. `next dev -p 3001`, if that port is already used by the API).
+
+Proxies forward the browser **`Cookie`** header to the API and return upstream **`Set-Cookie`** headers so anonymous sessions work without signup.
+
+| Next.js route | Upstream |
+| --- | --- |
+| `POST /api/audio/uploads` | `POST /api/v1/audio/uploads` (multipart body streamed; preserves `Content-Type` boundary) |
+| `POST /api/reports/from-audio` | `POST /api/v1/reports/from-audio` (JSON body; forwards optional `Idempotency-Key`) |
+
+Shared helpers live in `src/lib/upstream-proxy.ts` for additional proxies (GET report, artifacts, etc.).
+
 ## Design notes
 
 The brand is "premium clinical parody". Visually:

@@ -9,10 +9,23 @@ interface ShareActionRowProps {
   onGenerateAnother: () => void;
   /** Called when "Copy caption" is clicked. */
   onCopyCaption: () => void;
-  /** Target href for the "Save share card" button — usually /share?variant=... */
-  shareHref: string;
-  /** Fires before navigation when "Save share card" is clicked (for analytics). */
+  /**
+   * Target href for "Save share card" when navigating to the static share surface.
+   * Omit when the parent handles generation (e.g. persisted `reportId` flow).
+   */
+  shareHref?: string;
+  /** Fires when "Save share card" is clicked (analytics + optional generation). */
   onSaveShareCardClick?: () => void;
+  /** Disables the share-card control while a generation request is in flight. */
+  saveShareCardDisabled?: boolean;
+  /** Optional status line shown under the action row (errors, etc.). */
+  saveShareCardStatus?: string | null;
+  /** When set, renders "Copy share link" (server-backed share mint + clipboard). */
+  onCopyShareLink?: () => void;
+  /** Disables copy-share-link while the mint/copy request is in flight. */
+  shareLinkBusy?: boolean;
+  /** Short-lived "Copied" label or error text for copy-share-link. */
+  shareLinkStatus?: string | null;
   /** Target href for the "Challenge a friend" button. */
   challengeHref: string;
   /** Fires before navigation when "Challenge a friend" is clicked. */
@@ -38,6 +51,11 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
   onCopyCaption,
   shareHref,
   onSaveShareCardClick,
+  saveShareCardDisabled,
+  saveShareCardStatus,
+  onCopyShareLink,
+  shareLinkBusy,
+  shareLinkStatus,
   challengeHref,
   onChallengeClick,
   premiumHref,
@@ -69,11 +87,13 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <Button
           variant="primary"
-          href={shareHref}
+          {...(shareHref ? { href: shareHref } : {})}
+          type="button"
+          disabled={saveShareCardDisabled}
           onClick={onSaveShareCardClick}
           trailing={<Arrow />}
         >
-          Save share card
+          {saveShareCardDisabled ? 'Generating…' : 'Save share card'}
         </Button>
         <Button
           variant="secondary"
@@ -86,6 +106,16 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
         <Button variant="secondary" onClick={onCopyCaption}>
           Copy caption
         </Button>
+        {onCopyShareLink ? (
+          <Button
+            variant="secondary"
+            type="button"
+            disabled={shareLinkBusy}
+            onClick={onCopyShareLink}
+          >
+            {shareLinkBusy ? 'Copying…' : shareLinkStatus === 'Copied' ? 'Copied' : 'Copy share link'}
+          </Button>
+        ) : null}
         <Button variant="secondary" onClick={onGenerateAnother}>
           Generate another
         </Button>
@@ -104,6 +134,16 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
         </div>
       </div>
     </div>
+    {saveShareCardStatus || shareLinkStatus ? (
+      <p
+        className={[
+          'mt-2 font-mono text-[0.65rem]',
+          shareLinkStatus === 'Copied' ? 'text-[var(--accent-brass)]' : 'text-[var(--text-faint)]',
+        ].join(' ')}
+      >
+        {[saveShareCardStatus, shareLinkStatus].filter(Boolean).join(' · ')}
+      </p>
+    ) : null}
   </motion.section>
 );
 

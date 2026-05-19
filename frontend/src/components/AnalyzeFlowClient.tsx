@@ -5,7 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnalysisSequence } from '@/components/AnalysisSequence';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
-import { CaptureChamber } from '@/components/CaptureChamber';
+import {
+  CaptureChamber,
+  type CaptureCompletedPayload,
+} from '@/components/CaptureChamber';
 import { FooterLoreStrip } from '@/components/FooterLoreStrip';
 import { IntakeChoicePanel } from '@/components/IntakeChoicePanel';
 import { Navbar } from '@/components/Navbar';
@@ -15,10 +18,27 @@ import {
   serializeChallenge,
   type Challenge,
 } from '@/lib/challenge';
+import {
+  createReportFromAudio,
+  FartsApiError,
+  uploadAudio,
+} from '@/lib/report-from-recording-api';
 import { getRandomVariant } from '@/lib/result-variants';
 
 type Step = 'intake' | 'capture' | 'analysis';
 type Path = 'record' | 'fake';
+
+type CaptureMode = 'live' | 'simulated';
+
+type StoredRecording = {
+  blob: Blob;
+  mimeType: string;
+  durationSeconds?: number;
+};
+
+function resolveCaptureMode(): CaptureMode {
+  return process.env.NEXT_PUBLIC_CAPTURE_MODE === 'simulated' ? 'simulated' : 'live';
+}
 
 /**
  * Client state machine that bridges the landing page and /report.
@@ -26,91 +46,67 @@ type Path = 'record' | 'fake';
  *   intake  ─ "record" ─►  capture  ─►  analysis  ─►  /report?variant=…
  *           ─  "fake"  ──────────────►  analysis  ─►  /report?variant=…
  *
- * Variant selection rules:
- *   - "fake" path  : roll a random variant on intake choice.
- *   - "record" path: roll a random variant when capture completes (the
- *     fake "analysis" of fake audio still has to produce some dossier).
- *
- * URL handling:
- *   The landing page links to /analyze?path=record|fake to skip straight
- *   to the right initial step. The query is read once on mount; further
- *   transitions are in-memory only.
+ * Live record path: upload audio + create report while analysis runs, then
+ * redirect when both the animation and network work finish.
  */
 export function AnalyzeFlowClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialPath = readPath(searchParams.get('path'));
+  const captureMode = resolveCaptureMode();
 
   const [step, setStep] = useState<Step>(stepFor(initialPath));
   const [chosenVariantId, setChosenVariantId] = useState<string | null>(() =>
     initialPath === 'fake' ? getRandomVariant().id : null,
   );
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
 
-  // Parse any challenge context the user is carrying through the funnel.
-  // Captured once on mount so a switch to soft-navigation can't drop it.
   const challengeRef = useRef<Challenge | null>(null);
   if (challengeRef.current === null) {
-    // useRef lazy-init pattern: only parse once per mount.
     challengeRef.current = parseChallengeFromSearchParams(searchParams);
   }
 
-  // Fire the page-view exactly once with whichever step we landed on.
+  const recordingRef = useRef<StoredRecording | null>(null);
+  const analysisDoneRef = useRef(false);
+  const networkDoneRef = useRef(false);
+  const reportIdRef = useRef<string | null>(null);
+  const redirectingRef = useRef(false);
+
   const initialisedRef = useRef(false);
   useEffect(() => {
     if (initialisedRef.current) return;
     initialisedRef.current = true;
     pageView('analyze_view', { initialStep: step, pathParam: initialPath });
-    // For a deep-link landing straight on analysis, count that as
-    // analysis_started immediately so the funnel doesn't lose the beat.
     if (step === 'analysis') {
       track('analysis_started', { path: initialPath, variantId: chosenVariantId });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // — Track how long the analysis runs so the completion event can carry
-  //   an elapsedMs figure useful for tuning the dramatic-pause length. —
   const analysisStartedAtRef = useRef<number | null>(null);
 
-  // — Step transitions —
-  const onChoosePath = useCallback((path: Path) => {
-    track('intake_path_selected', { path });
-    if (path === 'fake') {
-      const next = getRandomVariant();
-      setChosenVariantId(next.id);
-      setStep('analysis');
-      track('analysis_started', { path: 'fake', variantId: next.id });
-      analysisStartedAtRef.current = performance.now();
-    } else {
-      setStep('capture');
-    }
-  }, []);
+  const tryRedirect = useCallback(() => {
+    if (redirectingRef.current) return;
+    if (!analysisDoneRef.current || !networkDoneRef.current) return;
 
-  const onCaptureComplete = useCallback(() => {
-    const next = getRandomVariant();
-    setChosenVariantId(next.id);
-    setStep('analysis');
-    track('analysis_started', { path: 'record', variantId: next.id });
-    analysisStartedAtRef.current = performance.now();
-  }, []);
+    const variant = chosenVariantId ?? getRandomVariant().id;
+    const reportId = reportIdRef.current;
 
-  const onCaptureBack = useCallback(() => {
-    setStep('intake');
-  }, []);
+    if (captureMode === 'live' && !reportId) return;
 
-  const onAnalysisComplete = useCallback(() => {
-    const target = chosenVariantId ?? getRandomVariant().id;
+    redirectingRef.current = true;
+
     const startedAt = analysisStartedAtRef.current ?? performance.now();
     track('analysis_completed', {
-      variantId: target,
+      variantId: variant,
       elapsedMs: Math.round(performance.now() - startedAt),
     });
 
-    // Forward challenge context (if any) into the report URL so the
-    // dossier page can show comparative framing later. Even though /report
-    // doesn't act on it yet, the analytics handoff fires here so we can
-    // measure how often a challenge actually completes the loop.
-    const params = new URLSearchParams({ variant: target });
+    const params = new URLSearchParams({ variant });
+    if (reportId) {
+      params.set('reportId', reportId);
+    }
+
     const challenge = challengeRef.current;
     if (challenge) {
       const cParams = serializeChallenge(challenge);
@@ -122,8 +118,131 @@ export function AnalyzeFlowClient() {
         targetSurface: 'report',
       });
     }
+
     router.push(`/report?${params.toString()}`);
-  }, [router, chosenVariantId]);
+  }, [router, chosenVariantId, captureMode]);
+
+  const resetPipelineRefs = useCallback(() => {
+    analysisDoneRef.current = false;
+    networkDoneRef.current = captureMode === 'simulated';
+    reportIdRef.current = null;
+    redirectingRef.current = false;
+  }, [captureMode]);
+
+  const startNetworkPipeline = useCallback(() => {
+    if (captureMode === 'simulated') {
+      networkDoneRef.current = true;
+      tryRedirect();
+      return;
+    }
+
+    const recording = recordingRef.current;
+    if (!recording) {
+      setPipelineError('No recording available. Please capture again.');
+      setStep('capture');
+      return;
+    }
+
+    networkDoneRef.current = false;
+    reportIdRef.current = null;
+
+    const idempotencyKey =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+
+    void (async () => {
+      try {
+        const upload = await uploadAudio(
+          recording.blob,
+          recording.mimeType,
+          recording.durationSeconds,
+        );
+        const report = await createReportFromAudio(
+          { audioUploadId: upload.id },
+          { idempotencyKey },
+        );
+        reportIdRef.current = report.id;
+        networkDoneRef.current = true;
+        tryRedirect();
+      } catch (e) {
+        networkDoneRef.current = false;
+        reportIdRef.current = null;
+        const message =
+          e instanceof FartsApiError
+            ? e.message
+            : e instanceof Error
+              ? e.message
+              : 'Upload or report creation failed';
+        setPipelineError(message);
+      }
+    })();
+  }, [captureMode, tryRedirect]);
+
+  const onChoosePath = useCallback(
+    (path: Path) => {
+      track('intake_path_selected', { path });
+      setPipelineError(null);
+      if (path === 'fake') {
+        const next = getRandomVariant();
+        setChosenVariantId(next.id);
+        resetPipelineRefs();
+        networkDoneRef.current = true;
+        setStep('analysis');
+        track('analysis_started', { path: 'fake', variantId: next.id });
+        analysisStartedAtRef.current = performance.now();
+      } else {
+        recordingRef.current = null;
+        setStep('capture');
+      }
+    },
+    [resetPipelineRefs],
+  );
+
+  const onCaptureCompleted = useCallback((info: CaptureCompletedPayload) => {
+    track('capture_completed', {
+      elapsedMs: info.elapsedMs,
+      method: info.stopReason ?? 'timer',
+    });
+    if (info.method === 'live' && info.blob && info.mimeType) {
+      recordingRef.current = {
+        blob: info.blob,
+        mimeType: info.mimeType,
+        durationSeconds: info.durationSeconds,
+      };
+    } else {
+      recordingRef.current = null;
+    }
+  }, []);
+
+  const onCaptureComplete = useCallback(() => {
+    const next = getRandomVariant();
+    setChosenVariantId(next.id);
+    setPipelineError(null);
+    resetPipelineRefs();
+    setStep('analysis');
+    track('analysis_started', { path: 'record', variantId: next.id });
+    analysisStartedAtRef.current = performance.now();
+    startNetworkPipeline();
+  }, [resetPipelineRefs, startNetworkPipeline]);
+
+  const onCaptureBack = useCallback(() => {
+    recordingRef.current = null;
+    setPipelineError(null);
+    setStep('intake');
+  }, []);
+
+  const onAnalysisComplete = useCallback(() => {
+    analysisDoneRef.current = true;
+    tryRedirect();
+  }, [tryRedirect]);
+
+  const onRetryFromAnalysis = useCallback(() => {
+    setPipelineError(null);
+    recordingRef.current = null;
+    resetPipelineRefs();
+    setStep('capture');
+  }, [resetPipelineRefs]);
 
   return (
     <>
@@ -138,16 +257,39 @@ export function AnalyzeFlowClient() {
             {step === 'capture' ? (
               <CaptureChamber
                 key="capture"
+                mode={captureMode}
                 onBack={onCaptureBack}
                 onComplete={onCaptureComplete}
                 onCaptureStarted={() => track('capture_started', {})}
-                onCaptureCompleted={(info) => track('capture_completed', info)}
-                onCaptureRestarted={() => track('capture_restarted', {})}
+                onCaptureCompleted={onCaptureCompleted}
+                onCaptureRestarted={() => {
+                  recordingRef.current = null;
+                  track('capture_restarted', {});
+                }}
                 onCaptureCancelled={(info) => track('capture_cancelled', info)}
               />
             ) : null}
             {step === 'analysis' ? (
-              <AnalysisSequence key="analysis" onComplete={onAnalysisComplete} />
+              <div key="analysis" className="flex flex-col">
+                {pipelineError ? (
+                  <div className="mx-auto mb-6 w-full max-w-7xl px-6 lg:px-10">
+                    <div className="rounded-md border border-[var(--color-alert-red)]/40 bg-[color-mix(in_oklab,var(--color-alert-red)_12%,transparent)] px-5 py-4">
+                      <p className="font-mono text-[0.6rem] uppercase tracking-wide-3 text-[var(--color-alert-red)]">
+                        Submission failed
+                      </p>
+                      <p className="mt-2 text-sm text-[var(--text-default)]">{pipelineError}</p>
+                      <button
+                        type="button"
+                        onClick={onRetryFromAnalysis}
+                        className="mt-4 font-mono text-[0.62rem] uppercase tracking-wide-3 text-[var(--accent-brass)] underline-offset-2 hover:underline"
+                      >
+                        Return to capture chamber
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <AnalysisSequence onComplete={onAnalysisComplete} />
+              </div>
             ) : null}
           </AnimatePresence>
         </main>

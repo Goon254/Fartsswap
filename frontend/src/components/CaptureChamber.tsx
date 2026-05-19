@@ -10,21 +10,46 @@ import { ProgressDial } from '@/components/ProgressDial';
 
 type ChamberState = 'STANDBY' | 'ARMED' | 'RECORDING' | 'COMPLETE';
 
+export type CaptureChamberMode = 'live' | 'simulated';
+
+export type CaptureCompletedPayload = {
+  elapsedMs: number;
+  method: CaptureChamberMode;
+  blob?: Blob;
+  mimeType?: string;
+  durationSeconds?: number;
+  /** How the capture ended (timer vs early stop). */
+  stopReason?: 'timer' | 'manual_stop';
+};
+
 interface CaptureChamberProps {
+  mode?: CaptureChamberMode;
   onBack: () => void;
   onComplete: () => void;
   /** Fired when the user taps "Begin Capture". */
   onCaptureStarted?: () => void;
   /** Fired when the recording finishes (auto timer or manual stop). */
-  onCaptureCompleted?: (info: { elapsedMs: number; method: 'timer' | 'manual_stop' }) => void;
+  onCaptureCompleted?: (info: CaptureCompletedPayload) => void;
   /** Fired when the user resets after a complete capture. */
   onCaptureRestarted?: () => void;
   /** Fired when the user cancels during ARMED / RECORDING. */
   onCaptureCancelled?: (info: { phase: 'armed' | 'recording' }) => void;
 }
 
+const DURATION_MS = 10_000;
+
+function pickSupportedMimeType(): string | null {
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm'];
+  for (const mime of candidates) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(mime)) {
+      return mime;
+    }
+  }
+  return null;
+}
+
 /**
- * Step 2A — Fake recording chamber.
+ * Step 2A — Recording chamber.
  *
  * State machine:
  *   STANDBY     → user taps "Begin Capture"
@@ -32,16 +57,11 @@ interface CaptureChamberProps {
  *   RECORDING   → 10s countdown OR user taps "Stop" → state COMPLETE
  *   COMPLETE    → "Continue → Analyze" CTA appears
  *
- * No real microphone is touched in this milestone. The animation, the
- * progress dial, and the audible-looking waveform sell the illusion. When
- * the real mic flow lands later, this component becomes the host for it
- * and the state machine stays identical.
- *
- * Implementation note: progress is driven by a single rAF loop. We avoid
- * setInterval so the dial stays smooth and we don't drift if the tab
- * deprioritises us.
+ * `simulated` mode preserves the milestone fake flow (no microphone).
+ * `live` mode uses getUserMedia + MediaRecorder (Chrome/Chromium v1).
  */
 export const CaptureChamber: FC<CaptureChamberProps> = ({
+  mode = 'simulated',
   onBack,
   onComplete,
   onCaptureStarted,
@@ -51,35 +71,159 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
 }) => {
   const [state, setState] = useState<ChamberState>('STANDBY');
   const [progress, setProgress] = useState(0);
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const armedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
   const recordingStartedAtRef = useRef<number | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
+  const chosenMimeTypeRef = useRef<string | null>(null);
+  const finalizingRef = useRef(false);
 
-  const DURATION_MS = 10_000;
+  const releaseMedia = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      try {
+        recorder.stop();
+      } catch {
+        // already stopped
+      }
+    }
+    mediaRecorderRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    chunksRef.current = [];
+    chosenMimeTypeRef.current = null;
+  }, []);
+
+  const cancelRaf = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
+  const emitCaptureCompleted = useCallback(
+    (info: CaptureCompletedPayload) => {
+      onCaptureCompleted?.(info);
+    },
+    [onCaptureCompleted],
+  );
+
+  const finishSimulatedCapture = useCallback(
+    (stopReason: 'timer' | 'manual_stop', elapsedMs: number) => {
+      if (finalizingRef.current) return;
+      finalizingRef.current = true;
+      cancelRaf();
+      setProgress(1);
+      setState('COMPLETE');
+      emitCaptureCompleted({
+        elapsedMs,
+        method: 'simulated',
+        stopReason,
+      });
+    },
+    [cancelRaf, emitCaptureCompleted],
+  );
+
+  const finishLiveCapture = useCallback(
+    (stopReason: 'timer' | 'manual_stop') => {
+      if (finalizingRef.current) return;
+      finalizingRef.current = true;
+      cancelRaf();
+
+      const recorder = mediaRecorderRef.current;
+      const mimeType = chosenMimeTypeRef.current;
+      const elapsedMs = recordingStartedAtRef.current
+        ? Math.round(performance.now() - recordingStartedAtRef.current)
+        : 0;
+      const durationSeconds = Math.min(10, Math.max(0.1, elapsedMs / 1000));
+
+      const completeWithBlob = () => {
+        const type = mimeType ?? 'audio/webm';
+        const blob = new Blob(chunksRef.current, { type });
+        releaseMedia();
+        setProgress(1);
+        setState('COMPLETE');
+        emitCaptureCompleted({
+          elapsedMs,
+          method: 'live',
+          blob,
+          mimeType: type,
+          durationSeconds,
+          stopReason,
+        });
+      };
+
+      if (!recorder || recorder.state === 'inactive') {
+        if (!mimeType || chunksRef.current.length === 0) {
+          finalizingRef.current = false;
+          setCaptureError('Recording failed before any audio was captured. Please try again.');
+          releaseMedia();
+          setProgress(0);
+          setState('STANDBY');
+          return;
+        }
+        completeWithBlob();
+        return;
+      }
+
+      recorder.addEventListener(
+        'stop',
+        () => {
+          if (chunksRef.current.length === 0) {
+            finalizingRef.current = false;
+            setCaptureError('No audio was captured. Check your microphone and try again.');
+            releaseMedia();
+            setProgress(0);
+            setState('STANDBY');
+            return;
+          }
+          completeWithBlob();
+        },
+        { once: true },
+      );
+
+      try {
+        recorder.stop();
+      } catch {
+        finalizingRef.current = false;
+        setCaptureError('Could not stop the recorder. Please try again.');
+        releaseMedia();
+        setProgress(0);
+        setState('STANDBY');
+      }
+    },
+    [cancelRaf, emitCaptureCompleted, releaseMedia],
+  );
 
   // — Cleanup on unmount —
   useEffect(
     () => () => {
       if (armedTimerRef.current) clearTimeout(armedTimerRef.current);
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      cancelRaf();
+      releaseMedia();
     },
-    [],
+    [cancelRaf, releaseMedia],
   );
 
-  // — Drive progress when in RECORDING —
+  // — Simulated RECORDING: rAF progress only —
   useEffect(() => {
-    if (state !== 'RECORDING') return;
+    if (state !== 'RECORDING' || mode !== 'simulated') return;
+
     recordingStartedAtRef.current = performance.now();
+    finalizingRef.current = false;
+
     const reduced =
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduced) {
-      setProgress(1);
-      setState('COMPLETE');
-      onCaptureCompleted?.({ elapsedMs: 0, method: 'timer' });
+      finishSimulatedCapture('timer', 0);
       return;
     }
+
     startedAtRef.current = performance.now();
     const tick = (now: number) => {
       const startedAt = startedAtRef.current ?? now;
@@ -87,19 +231,108 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
       const p = Math.min(1, elapsed / DURATION_MS);
       setProgress(p);
       if (p >= 1) {
-        setState('COMPLETE');
-        onCaptureCompleted?.({ elapsedMs: Math.round(elapsed), method: 'timer' });
+        finishSimulatedCapture('timer', Math.round(elapsed));
         return;
       }
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
+
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      cancelRaf();
     };
-  }, [state, onCaptureCompleted]);
+  }, [state, mode, finishSimulatedCapture, cancelRaf]);
+
+  // — Live RECORDING: mic + MediaRecorder + rAF progress —
+  useEffect(() => {
+    if (state !== 'RECORDING' || mode !== 'live') return;
+
+    let cancelled = false;
+    recordingStartedAtRef.current = performance.now();
+    finalizingRef.current = false;
+    setCaptureError(null);
+
+    const mimeType = pickSupportedMimeType();
+    if (!mimeType) {
+      setCaptureError(
+        'This browser does not support WebM audio recording. Use Chrome or Chromium to record.',
+      );
+      setProgress(0);
+      setState('STANDBY');
+      return;
+    }
+    const recordingMime = mimeType;
+    chosenMimeTypeRef.current = recordingMime;
+
+    async function startLiveRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        mediaStreamRef.current = stream;
+
+        const recorder = new MediaRecorder(stream, { mimeType: recordingMime });
+        chunksRef.current = [];
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) chunksRef.current.push(event.data);
+        };
+        recorder.onerror = () => {
+          if (cancelled || finalizingRef.current) return;
+          setCaptureError('Microphone recording failed. Please try again.');
+          releaseMedia();
+          setProgress(0);
+          setState('STANDBY');
+        };
+
+        mediaRecorderRef.current = recorder;
+        recorder.start(250);
+
+        startedAtRef.current = performance.now();
+        const tick = (now: number) => {
+          if (cancelled || finalizingRef.current) return;
+          const startedAt = startedAtRef.current ?? now;
+          const elapsed = now - startedAt;
+          const p = Math.min(1, elapsed / DURATION_MS);
+          setProgress(p);
+          if (p >= 1) {
+            finishLiveCapture('timer');
+            return;
+          }
+          rafRef.current = requestAnimationFrame(tick);
+        };
+        rafRef.current = requestAnimationFrame(tick);
+      } catch (e) {
+        if (cancelled) return;
+        const denied =
+          e instanceof DOMException &&
+          (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError');
+        setCaptureError(
+          denied
+            ? 'Microphone access was denied. Allow the microphone in your browser settings, then try again.'
+            : 'Could not access the microphone. Check your device and try again.',
+        );
+        releaseMedia();
+        setProgress(0);
+        setState('STANDBY');
+      }
+    }
+
+    void startLiveRecording();
+
+    return () => {
+      cancelled = true;
+      cancelRaf();
+      if (!finalizingRef.current) {
+        releaseMedia();
+      }
+    };
+  }, [state, mode, finishLiveCapture, cancelRaf, releaseMedia]);
 
   const onBegin = useCallback(() => {
+    setCaptureError(null);
+    finalizingRef.current = false;
     setProgress(0);
     setState('ARMED');
     onCaptureStarted?.();
@@ -107,32 +340,41 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
   }, [onCaptureStarted]);
 
   const onStop = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
     const elapsedMs = recordingStartedAtRef.current
       ? Math.round(performance.now() - recordingStartedAtRef.current)
       : 0;
-    setState('COMPLETE');
-    onCaptureCompleted?.({ elapsedMs, method: 'manual_stop' });
-  }, [onCaptureCompleted]);
+    if (mode === 'simulated') {
+      finishSimulatedCapture('manual_stop', elapsedMs);
+    } else {
+      finishLiveCapture('manual_stop');
+    }
+  }, [mode, finishSimulatedCapture, finishLiveCapture]);
 
   const onReset = useCallback(() => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    cancelRaf();
     if (armedTimerRef.current) clearTimeout(armedTimerRef.current);
-    // Distinguish "cancel during capture" from "re-capture after complete"
-    // because they correspond to two different events in the schema.
+    finalizingRef.current = false;
+    releaseMedia();
     if (state === 'ARMED' || state === 'RECORDING') {
       onCaptureCancelled?.({ phase: state === 'ARMED' ? 'armed' : 'recording' });
     } else if (state === 'COMPLETE') {
       onCaptureRestarted?.();
     }
+    setCaptureError(null);
     setProgress(0);
     setState('STANDBY');
-  }, [state, onCaptureCancelled, onCaptureRestarted]);
+  }, [state, onCaptureCancelled, onCaptureRestarted, cancelRaf, releaseMedia]);
 
   const secondsRemaining = Math.max(0, Math.ceil((1 - progress) * 10));
   const recording = state === 'RECORDING';
   const armed = state === 'ARMED';
   const complete = state === 'COMPLETE';
+
+  const systemMessage =
+    captureError ??
+    (mode === 'live' && state === 'STANDBY' && !captureError
+      ? 'Live capture uses your microphone. Up to ten seconds per sample.'
+      : SYSTEM_MESSAGES[state]);
 
   return (
     <motion.section
@@ -195,13 +437,13 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
             <div className="mt-1 min-h-[1.4rem] text-sm text-[var(--text-default)]" aria-live="polite">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span
-                  key={state}
+                  key={systemMessage}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {SYSTEM_MESSAGES[state]}
+                  {systemMessage}
                 </motion.span>
               </AnimatePresence>
             </div>

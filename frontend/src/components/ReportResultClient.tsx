@@ -13,11 +13,128 @@ import { ResultHeader } from '@/components/ResultHeader';
 import { ResultHero } from '@/components/ResultHero';
 import { ShareActionRow } from '@/components/ShareActionRow';
 import { VariantSwitcher } from '@/components/VariantSwitcher';
+import { createReportArtifact, rewriteArtifactContentUrlToProxy } from '@/lib/artifact-api';
 import { pageView, track } from '@/lib/analytics';
-import { createChallenge, createChallengeLink } from '@/lib/challenge';
+import { createReportShareLink } from '@/lib/share-api';
+import {
+  createChallenge as buildLocalChallenge,
+  createChallengeLink,
+  type Challenge,
+  type ChallengeSourceSurface,
+  type ChallengeType,
+} from '@/lib/challenge';
+import { buildCreateChallengeBody, createChallenge as registerChallenge } from '@/lib/challenge-api';
+import type { ChallengeResponseDto, ReportResponseDto } from '@/lib/farts-api-types';
 import { premiumLinkFor } from '@/lib/premium';
-import { getVariant, getVariantById, RESULT_VARIANTS } from '@/lib/result-variants';
+import { fetchReportById } from '@/lib/report-from-recording-api';
+import {
+  getVariant,
+  getVariantById,
+  RESULT_VARIANTS,
+  type ResultVariant,
+  type ThreatLevel,
+} from '@/lib/result-variants';
 import { applySeedOverridesToVariant, parseSeedPayload } from '@/lib/seed';
+
+const THREAT_LEVELS: readonly ThreatLevel[] = ['Green', 'Amber', 'Red', 'Cerulean'];
+const CHALLENGE_TYPES: readonly ChallengeType[] = ['beat_score', 'rarer_classification', 'open'];
+const CHALLENGE_SURFACES: readonly ChallengeSourceSurface[] = ['report', 'share'];
+
+function challengeFromDto(dto: ChallengeResponseDto): Challenge {
+  const challengeType = dto.challengeType as ChallengeType;
+  const sourceSurface = dto.sourceSurface as ChallengeSourceSurface;
+  return {
+    challengeId: dto.id,
+    sourceVariantId: dto.variantId,
+    sourceScore: dto.sourceScore,
+    issuedAt: dto.issuedAt,
+    challengeType: CHALLENGE_TYPES.includes(challengeType) ? challengeType : 'beat_score',
+    sourceSurface: CHALLENGE_SURFACES.includes(sourceSurface) ? sourceSurface : 'report',
+  };
+}
+
+function isNonEmptyString(value: string | null | undefined): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function parseThreatLevel(value: string): ThreatLevel | null {
+  const normalized = value.trim();
+  return (
+    THREAT_LEVELS.find((level) => level.toLowerCase() === normalized.toLowerCase()) ?? null
+  );
+}
+
+/** Layers persisted server fields onto the active variant (seed overrides preserved underneath). */
+function mergeServerReportIntoVariant(
+  baseVariant: ResultVariant,
+  report: ReportResponseDto,
+): ResultVariant {
+  let next = baseVariant;
+
+  if (isNonEmptyString(report.fartName)) {
+    next = { ...next, subjectTitle: report.fartName.trim() };
+  }
+  if (isNonEmptyString(report.classification)) {
+    next = { ...next, classification: report.classification.trim() };
+  }
+  if (typeof report.powerScore === 'number' && Number.isFinite(report.powerScore)) {
+    next = { ...next, powerScore: report.powerScore };
+  }
+  if (typeof report.durationMs === 'number' && Number.isFinite(report.durationMs) && report.durationMs > 0) {
+    next = { ...next, durationMs: report.durationMs };
+  }
+  if (isNonEmptyString(report.emotionalTone)) {
+    next = { ...next, emotionalTone: report.emotionalTone.trim() };
+  }
+  if (isNonEmptyString(report.probableCause)) {
+    next = { ...next, probableCause: report.probableCause.trim() };
+  }
+  if (isNonEmptyString(report.cinematicParallel)) {
+    next = { ...next, cinematicParallel: report.cinematicParallel.trim() };
+  }
+  if (isNonEmptyString(report.threatLevel)) {
+    const threat = parseThreatLevel(report.threatLevel);
+    if (threat) next = { ...next, threatLevel: threat };
+  }
+  if (isNonEmptyString(report.fartHash)) {
+    next = { ...next, reportHash: report.fartHash.trim() };
+  }
+
+  return next;
+}
+
+function buildReportShareUrl(reportId: string, token: string): string {
+  const params = new URLSearchParams({ reportId, share: token });
+  return `${window.location.origin}/report?${params.toString()}`;
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // fall through to legacy copy
+    }
+  }
+  if (typeof document === 'undefined') {
+    throw new Error('Clipboard unavailable');
+  }
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.setAttribute('readonly', '');
+  el.style.position = 'fixed';
+  el.style.left = '-9999px';
+  document.body.appendChild(el);
+  el.select();
+  try {
+    if (!document.execCommand('copy')) {
+      throw new Error('Copy failed');
+    }
+  } finally {
+    document.body.removeChild(el);
+  }
+}
 
 /**
  * Client orchestrator for the /report route.
@@ -61,11 +178,58 @@ export function ReportResultClient({
   const seedPayload = useMemo(() => parseSeedPayload(searchParams), [searchParams]);
   const reportIdFromQuery = searchParams.get('reportId');
   const commerceReportId = initialReportId ?? reportIdFromQuery;
+  const persistedReportId = useMemo(() => {
+    const trimmed = commerceReportId?.trim();
+    return trimmed || null;
+  }, [commerceReportId]);
+
+  const [serverReport, setServerReport] = useState<ReportResponseDto | null>(null);
+  const [reportFetchError, setReportFetchError] = useState<string | null>(null);
+  const [shareCardBusy, setShareCardBusy] = useState(false);
+  const [shareCardError, setShareCardError] = useState<string | null>(null);
+  const [shareLinkBusy, setShareLinkBusy] = useState(false);
+  const [shareLinkStatus, setShareLinkStatus] = useState<string | null>(null);
+  const [registeredChallenge, setRegisteredChallenge] = useState<Challenge | null>(null);
+  const [challengeRegisterError, setChallengeRegisterError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!persistedReportId) {
+      setServerReport(null);
+      setReportFetchError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const report = await fetchReportById(persistedReportId);
+        if (!cancelled) {
+          setServerReport(report);
+          setReportFetchError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setServerReport(null);
+          setReportFetchError(e instanceof Error ? e.message : 'Failed to load report');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [persistedReportId]);
+
   const baseVariant = getVariant(activeId);
-  const variant = useMemo(
+  const variantWithSeed = useMemo(
     () => applySeedOverridesToVariant(baseVariant, seedPayload),
     [baseVariant, seedPayload],
   );
+  const variant = useMemo(() => {
+    if (!serverReport) return variantWithSeed;
+    return mergeServerReportIntoVariant(variantWithSeed, serverReport);
+  }, [variantWithSeed, serverReport]);
 
   // Page-view fires once on mount with whichever variant we landed on.
   const viewedRef = useRef(false);
@@ -131,26 +295,109 @@ export function ReportResultClient({
 
   const onSaveShareCardClick = useCallback(() => {
     track('save_share_card_clicked', { variantId: variant.id });
-  }, [variant.id]);
+    if (!persistedReportId || shareCardBusy) return;
+
+    void (async () => {
+      setShareCardBusy(true);
+      setShareCardError(null);
+      try {
+        const artifact = await createReportArtifact(
+          persistedReportId,
+          ['share-card'],
+          JSON.stringify({ styleVariant: 'clinical' }),
+          {
+            contentType: 'application/json',
+            idempotencyKey: crypto.randomUUID(),
+          },
+        );
+        const contentPath = artifact.contentUrl ?? `/api/v1/artifacts/${artifact.id}/content`;
+        const openUrl = rewriteArtifactContentUrlToProxy(contentPath);
+        window.open(openUrl, '_blank', 'noopener,noreferrer');
+      } catch (e) {
+        setShareCardError(e instanceof Error ? e.message : 'Share card generation failed');
+      } finally {
+        setShareCardBusy(false);
+      }
+    })();
+  }, [persistedReportId, shareCardBusy, variant.id]);
+
+  const onCopyShareLink = useCallback(() => {
+    if (!persistedReportId || shareLinkBusy) return;
+
+    void (async () => {
+      setShareLinkBusy(true);
+      setShareLinkStatus(null);
+      try {
+        const link = await createReportShareLink(
+          persistedReportId,
+          JSON.stringify({ kind: 'dossier' }),
+          { contentType: 'application/json' },
+        );
+        const url = buildReportShareUrl(persistedReportId, link.token);
+        await copyTextToClipboard(url);
+        setShareLinkStatus('Copied');
+        window.setTimeout(() => setShareLinkStatus(null), 1800);
+      } catch (e) {
+        setShareLinkStatus(e instanceof Error ? e.message : 'Failed to copy share link');
+      } finally {
+        setShareLinkBusy(false);
+      }
+    })();
+  }, [persistedReportId, shareLinkBusy]);
 
   /**
-   * Build a stable challenge for the active variant. The challengeId and
-   * issuedAt are fixed per variant-change so:
-   *   - cmd-click + regular click + back-button all open the same URL
-   *   - analytics `challenge_link_created` correlates 1:1 with the link
-   *     the recipient eventually opens.
-   *
-   * The href is the sender-preview URL (`from=mine`); the /challenge page
-   * exposes the recipient-facing URL via its "Copy link" affordance.
+   * Local draft packet for the active variant. When a persisted report id is
+   * present we register this draft with the API and use the returned challenge
+   * as the source of truth for the challenge link.
    */
-  const challenge = useMemo(
-    () => createChallenge({ variant, sourceSurface: 'report' }),
+  const challengeDraft = useMemo(
+    () => buildLocalChallenge({ variant, sourceSurface: 'report' }),
     [variant],
   );
+
+  useEffect(() => {
+    if (!persistedReportId) {
+      setRegisteredChallenge(null);
+      setChallengeRegisterError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const body = buildCreateChallengeBody(challengeDraft, persistedReportId);
+
+    void (async () => {
+      try {
+        const dto = await registerChallenge(JSON.stringify(body), {
+          contentType: 'application/json',
+        });
+        if (!cancelled) {
+          setRegisteredChallenge(challengeFromDto(dto));
+          setChallengeRegisterError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setRegisteredChallenge(null);
+          setChallengeRegisterError(
+            e instanceof Error ? e.message : 'Challenge registration failed',
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [persistedReportId, challengeDraft]);
+
+  const challenge = persistedReportId
+    ? (registeredChallenge ?? challengeDraft)
+    : challengeDraft;
+
   const challengeHref = useMemo(
     () => createChallengeLink(challenge, { preview: true }),
     [challenge],
   );
+
   const onChallengeClick = useCallback(() => {
     track('challenge_link_created', {
       challengeId: challenge.challengeId,
@@ -169,6 +416,9 @@ export function ReportResultClient({
       sourceSurface: 'report',
     });
   }, [variant.id]);
+
+  // Retained for fallback diagnostics; no dedicated error surface on this page.
+  void reportFetchError;
 
   return (
     <>
@@ -189,8 +439,17 @@ export function ReportResultClient({
           <ShareActionRow
             onGenerateAnother={onGenerateAnother}
             onCopyCaption={onCopyCaption}
-            shareHref={`/share?variant=${encodeURIComponent(variant.id)}`}
+            shareHref={
+              persistedReportId
+                ? undefined
+                : `/share?variant=${encodeURIComponent(variant.id)}`
+            }
             onSaveShareCardClick={onSaveShareCardClick}
+            saveShareCardDisabled={shareCardBusy}
+            saveShareCardStatus={shareCardError ?? challengeRegisterError}
+            onCopyShareLink={persistedReportId ? onCopyShareLink : undefined}
+            shareLinkBusy={shareLinkBusy}
+            shareLinkStatus={shareLinkStatus}
             challengeHref={challengeHref}
             onChallengeClick={onChallengeClick}
             premiumHref={premiumHref}
