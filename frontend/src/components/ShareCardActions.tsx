@@ -163,7 +163,7 @@ export const ShareCardActions: FC<ShareCardActionsProps> = ({
         <ul className="mt-2 grid grid-cols-1 gap-1 text-[0.78rem] text-[var(--text-default)]">
           <li>· Classification + score + threat level</li>
           <li>· Acoustic signature hash (server-controlled)</li>
-          <li>· Bureau seal + farts.com watermark</li>
+          <li>· Bureau seal + fartsswap.com watermark</li>
           <li>· One featured advisory line</li>
         </ul>
         <div className="mt-3 flex flex-wrap items-center gap-2">

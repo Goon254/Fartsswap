@@ -117,7 +117,7 @@ export const MEDIA_FACTS: readonly MediaFact[] = [
   {
     id: 'distribution',
     label: 'DISTRIBUTION CHANNELS',
-    value: 'Web (farts.com) · press desk · diplomatic correspondence',
+    value: 'Web (fartsswap.com) · press desk · diplomatic correspondence',
   },
   {
     id: 'press_desk',

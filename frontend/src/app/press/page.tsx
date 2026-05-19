@@ -4,7 +4,7 @@ import { PressKitClient } from '@/components/PressKitClient';
 export const metadata: Metadata = {
   title: 'Press · Bureau of Acoustic Gasology',
   description:
-    'Official press release, boilerplate quotes, media fact sheet, sample assets, and embargo terms for the public release of Farts.com.',
+    'Official press release, boilerplate quotes, media fact sheet, sample assets, and embargo terms for the public release of Fartsswap.com.',
 };
 
 /**

@@ -81,7 +81,7 @@ export const PressHeader: FC<PressHeaderProps> = ({ onContactClick }) => (
 
         <p className="mt-5 max-w-[58ch] text-[0.95rem] leading-relaxed text-[var(--text-default)]">
           The Bureau of Acoustic Gasology, operating from Station OPS-04, has authorised the public
-          release of Farts.com, the world{'\u2019'}s first AI-powered fart diagnostic lab. This
+          release of Fartsswap.com, the world{'\u2019'}s first AI-powered fart diagnostic lab. This
           notice constitutes the official press packet under Docket № {PRESS_DOCKET}.
         </p>
 

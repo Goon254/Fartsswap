@@ -1,4 +1,4 @@
-# Farts.com — Frontend
+# Fartsswap.com — Frontend
 
 Public web client for the Bureau of Acoustic Gasology (Next.js App Router).
 

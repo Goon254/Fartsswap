@@ -65,7 +65,7 @@ export const FooterLoreStrip: FC = () => (
         </div>
 
         <p className="max-w-[60ch] text-xs leading-relaxed text-[var(--text-muted)] md:px-6">
-          Farts.com is a satirical product. No diagnosis is performed; no clinical relationship
+          Fartsswap.com is a satirical product. No diagnosis is performed; no clinical relationship
           is created; no methane is regulated. All reports are issued under the Bureau&apos;s
           standing Parody Authority. Subject to revision without further dignity.
         </p>

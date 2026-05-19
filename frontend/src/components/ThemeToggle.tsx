@@ -5,7 +5,7 @@ import { track } from '@/lib/analytics';
 
 type Theme = 'dark' | 'light';
 
-const STORAGE_KEY = 'farts.com:theme';
+const STORAGE_KEY = 'fartsswap.com:theme';
 
 /**
  * Theme toggle that flips `<html data-theme>` between `dark` and `light`.

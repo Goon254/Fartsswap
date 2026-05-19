@@ -40,14 +40,14 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://farts.com'),
+  metadataBase: new URL('https://fartsswap.com'),
   title: {
-    default: 'Farts.com — Bureau of Acoustic Gasology',
-    template: '%s · Farts.com',
+    default: 'Fartsswap.com — Bureau of Acoustic Gasology',
+    template: '%s · Fartsswap.com',
   },
   description:
     'The world\u2019s first AI-powered fart diagnostic lab. Record a fart. Receive a clinically unnecessary report. Share responsibly.',
-  applicationName: 'Farts.com',
+  applicationName: 'Fartsswap.com',
   authors: [{ name: 'Bureau of Acoustic Gasology' }],
   keywords: [
     'fart report',
@@ -57,16 +57,16 @@ export const metadata: Metadata = {
     'fake diagnostic',
   ],
   openGraph: {
-    title: 'Farts.com — Bureau of Acoustic Gasology',
+    title: 'Fartsswap.com — Bureau of Acoustic Gasology',
     description:
       'Record a fart. Receive a clinically unnecessary report. Share responsibly.',
-    siteName: 'Farts.com',
+    siteName: 'Fartsswap.com',
     type: 'website',
     locale: 'en_US',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Farts.com — Bureau of Acoustic Gasology',
+    title: 'Fartsswap.com — Bureau of Acoustic Gasology',
     description:
       'Record a fart. Receive a clinically unnecessary report. Share responsibly.',
   },

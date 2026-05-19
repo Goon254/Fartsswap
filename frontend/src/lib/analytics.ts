@@ -101,7 +101,7 @@ export function subscribe(fn: (record: AnalyticsRecord) => void): () => void {
 // Internals
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'farts.com:analytics_id';
+const STORAGE_KEY = 'fartsswap.com:analytics_id';
 const BUFFER_MAX = 200;
 const IS_DEV = process.env.NODE_ENV !== 'production';
 /** Default ingest via Next BFF → `POST /api/v1/analytics/events` (credentials via cookie on fetch fallback). */
@@ -207,7 +207,7 @@ function logToConsole(record: AnalyticsRecord): void {
   const color = colorForName(record.name);
   /* eslint-disable no-console */
   console.groupCollapsed(
-    `%c[farts.com] %c${record.name}`,
+    `%c[fartsswap.com] %c${record.name}`,
     'color:#d9b26a;font-weight:600;',
     `color:${color};font-weight:500;`,
   );

@@ -43,7 +43,7 @@ export const ReleaseBody: FC = () => (
           <span className="text-[var(--text-muted)]">DOCKET № {PRESS_DOCKET}</span>
         </div>
         <h2 className="mt-4 max-w-[28ch] font-display text-3xl leading-tight tracking-tight text-[var(--text-strong)] sm:text-4xl">
-          Farts.com today announced the public release of the world{'\u2019'}s first
+          Fartsswap.com today announced the public release of the world{'\u2019'}s first
           AI-powered fart diagnostic lab.
         </h2>
         <p className="mt-3 max-w-[58ch] font-display italic text-[1.05rem] leading-snug text-[var(--accent-brass)]">
@@ -61,7 +61,7 @@ export const ReleaseBody: FC = () => (
         ].join(' ')}
       >
         <p>
-          STATION OPS-04 &mdash; Farts.com today announced the public release of the world{'\u2019'}s
+          STATION OPS-04 &mdash; Fartsswap.com today announced the public release of the world{'\u2019'}s
           first AI-powered fart diagnostic lab, operating under the authority of the Bureau of
           Acoustic Gasology. The platform issues clinically unnecessary reports on civilian
           acoustic events, each accompanied by a serialised filing number and a tamper-evident

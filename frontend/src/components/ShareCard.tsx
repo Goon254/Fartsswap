@@ -400,7 +400,7 @@ export const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function Sha
               className="font-mono uppercase"
               style={{ fontSize: 12, letterSpacing: '0.22em', color: palette.textMuted }}
             >
-              farts.com · Bureau of Acoustic Gasology
+              fartsswap.com · Bureau of Acoustic Gasology
             </div>
             <div
               className="font-mono"
