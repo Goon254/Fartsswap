@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import {
   getOpsConsoleSecret,
@@ -6,6 +5,7 @@ import {
   opsAuthToken,
   OPS_AUTH_COOKIE,
   OPS_AUTH_COOKIE_MAX_AGE_SEC,
+  timingSafeEqualUtf8,
 } from '@/lib/ops-auth';
 
 function cookieOptions() {
@@ -40,18 +40,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Password required' }, { status: 400 });
   }
 
-  try {
-    const a = Buffer.from(password, 'utf8');
-    const b = Buffer.from(secret, 'utf8');
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
-      return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
-    }
-  } catch {
+  if (!timingSafeEqualUtf8(password, secret)) {
     return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(OPS_AUTH_COOKIE, opsAuthToken(secret), cookieOptions());
+  res.cookies.set(OPS_AUTH_COOKIE, await opsAuthToken(secret), cookieOptions());
   return res;
 }
 

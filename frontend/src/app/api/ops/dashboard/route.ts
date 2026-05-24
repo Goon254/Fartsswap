@@ -3,7 +3,7 @@ import { resolveOpsKeyForRequest, opsUnauthorizedResponse } from '@/lib/ops-upst
 
 /** Server-side proxy to the Nest ops dashboard (requires staff cookie or x-ops-key). */
 export async function GET(req: Request): Promise<NextResponse> {
-  const opsKey = resolveOpsKeyForRequest(req);
+  const opsKey = await resolveOpsKeyForRequest(req);
   if (!opsKey) {
     return opsUnauthorizedResponse();
   }

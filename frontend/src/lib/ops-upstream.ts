@@ -6,7 +6,7 @@ import {
   verifyOpsClientKey,
 } from '@/lib/ops-auth';
 
-export function resolveOpsKeyForRequest(request: Request): string | null {
+export async function resolveOpsKeyForRequest(request: Request): Promise<string | null> {
   const secret = getOpsConsoleSecret();
   if (!secret) return null;
 
@@ -19,7 +19,7 @@ export function resolveOpsKeyForRequest(request: Request): string | null {
 
   const clientKey = request.headers.get('x-ops-key') ?? undefined;
 
-  if (!hasValidOpsAuth({ cookie: cookieValue, clientKey, secret })) {
+  if (!(await hasValidOpsAuth({ cookie: cookieValue, clientKey, secret }))) {
     return null;
   }
 
@@ -42,7 +42,7 @@ export async function forwardOpsRequest(
   method: 'GET' | 'POST',
   upstreamPath: string,
 ): Promise<NextResponse> {
-  const opsKey = resolveOpsKeyForRequest(request);
+  const opsKey = await resolveOpsKeyForRequest(request);
   if (!opsKey) {
     return opsUnauthorizedResponse();
   }

@@ -1,9 +1,8 @@
-import { createHmac, timingSafeEqual } from 'crypto';
-
 /** HttpOnly cookie proving the browser completed staff login. */
 export const OPS_AUTH_COOKIE = 'farts_ops_auth';
 
 const OPS_AUTH_PAYLOAD = 'farts-ops-console-v1';
+const textEncoder = new TextEncoder();
 
 export function getOpsConsoleSecret(): string | undefined {
   const secret = process.env.OPS_CONSOLE_SECRET?.trim();
@@ -19,45 +18,62 @@ export function isOpsAuthConfigured(): boolean {
   return true;
 }
 
-export function opsAuthToken(secret: string): string {
-  return createHmac('sha256', secret).update(OPS_AUTH_PAYLOAD).digest('hex');
+/** Constant-time UTF-8 string compare (Edge-safe; no Node `crypto`). */
+export function timingSafeEqualUtf8(a: string, b: string): boolean {
+  const ab = textEncoder.encode(a);
+  const bb = textEncoder.encode(b);
+  if (ab.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ab.length; i++) {
+    diff |= ab[i]! ^ bb[i]!;
+  }
+  return diff === 0;
 }
 
-export function verifyOpsAuthCookie(cookieValue: string | undefined, secret?: string): boolean {
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, textEncoder.encode(message));
+  return Array.from(new Uint8Array(signature))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export async function opsAuthToken(secret: string): Promise<string> {
+  return hmacSha256Hex(secret, OPS_AUTH_PAYLOAD);
+}
+
+export async function verifyOpsAuthCookie(
+  cookieValue: string | undefined,
+  secret?: string,
+): Promise<boolean> {
   const configured = secret ?? getOpsConsoleSecret();
   if (!configured || !cookieValue) return false;
-  const expected = opsAuthToken(configured);
-  try {
-    const a = Buffer.from(cookieValue, 'utf8');
-    const b = Buffer.from(expected, 'utf8');
-    return a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
+  const expected = await opsAuthToken(configured);
+  return timingSafeEqualUtf8(cookieValue, expected);
 }
 
 export function verifyOpsClientKey(clientKey: string | undefined, secret?: string): boolean {
   const configured = secret ?? getOpsConsoleSecret();
   if (!configured || !clientKey) return false;
-  try {
-    const a = Buffer.from(clientKey, 'utf8');
-    const b = Buffer.from(configured, 'utf8');
-    return a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
+  return timingSafeEqualUtf8(clientKey, configured);
 }
 
-export function hasValidOpsAuth(args: {
+export async function hasValidOpsAuth(args: {
   cookie?: string | null;
   clientKey?: string | null;
   secret?: string;
-}): boolean {
+}): Promise<boolean> {
   if (!isOpsAuthConfigured()) {
     return process.env.NODE_ENV !== 'production';
   }
   return (
-    verifyOpsAuthCookie(args.cookie ?? undefined, args.secret) ||
+    (await verifyOpsAuthCookie(args.cookie ?? undefined, args.secret)) ||
     verifyOpsClientKey(args.clientKey ?? undefined, args.secret)
   );
 }

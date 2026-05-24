@@ -26,7 +26,7 @@ function isProtectedOpsApi(pathname: string): boolean {
   return true;
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!isStaffPage(pathname) && !isProtectedOpsApi(pathname)) {
@@ -40,7 +40,7 @@ export function middleware(request: NextRequest) {
   const cookie = request.cookies.get(OPS_AUTH_COOKIE)?.value;
   const clientKey = request.headers.get('x-ops-key');
 
-  if (hasValidOpsAuth({ cookie, clientKey })) {
+  if (await hasValidOpsAuth({ cookie, clientKey })) {
     return NextResponse.next();
   }
 
