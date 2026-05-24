@@ -27,12 +27,23 @@ async function parseJsonBody<T>(res: Response): Promise<T | null> {
   }
 }
 
-function errorMessage(status: number, body: ApiErrorBody | null): string {
-  if (body?.error && typeof body.error === 'string') return body.error;
-  if (body?.message) {
-    return Array.isArray(body.message) ? body.message.join(', ') : body.message;
+/** Maps opaque platform errors (e.g. dead Railway domains) into actionable copy. */
+export function humanizeApiErrorMessage(message: string): string {
+  if (/application not found/i.test(message)) {
+    return 'The filing API is unreachable — the backend URL is wrong or the Railway service is down. On Vercel, set FARTS_API_BASE_URL to your live API origin (Railway → service → Settings → Networking → public URL).';
   }
-  return `Request failed (${status})`;
+  return message;
+}
+
+function errorMessage(status: number, body: ApiErrorBody | null): string {
+  let raw: string;
+  if (body?.error && typeof body.error === 'string') raw = body.error;
+  else if (body?.message) {
+    raw = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+  } else {
+    raw = `Request failed (${status})`;
+  }
+  return humanizeApiErrorMessage(raw);
 }
 
 export async function assertOk<T>(res: Response): Promise<T> {

@@ -72,6 +72,8 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
   const [state, setState] = useState<ChamberState>('STANDBY');
   const [progress, setProgress] = useState(0);
   const [captureError, setCaptureError] = useState<string | null>(null);
+  /** Object URL for local replay after live capture (revoked on reset/unmount). */
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const armedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -81,6 +83,13 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
   const chunksRef = useRef<BlobPart[]>([]);
   const chosenMimeTypeRef = useRef<string | null>(null);
   const finalizingRef = useRef(false);
+
+  const clearPreview = useCallback(() => {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  }, []);
 
   const releaseMedia = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -145,6 +154,8 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
         const type = mimeType ?? 'audio/webm';
         const blob = new Blob(chunksRef.current, { type });
         releaseMedia();
+        clearPreview();
+        setPreviewUrl(URL.createObjectURL(blob));
         setProgress(1);
         setState('COMPLETE');
         emitCaptureCompleted({
@@ -196,7 +207,7 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
         setState('STANDBY');
       }
     },
-    [cancelRaf, emitCaptureCompleted, releaseMedia],
+    [cancelRaf, clearPreview, emitCaptureCompleted, releaseMedia],
   );
 
   // — Cleanup on unmount —
@@ -205,8 +216,9 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
       if (armedTimerRef.current) clearTimeout(armedTimerRef.current);
       cancelRaf();
       releaseMedia();
+      clearPreview();
     },
-    [cancelRaf, releaseMedia],
+    [cancelRaf, clearPreview, releaseMedia],
   );
 
   // — Simulated RECORDING: rAF progress only —
@@ -377,10 +389,11 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
     } else if (state === 'COMPLETE') {
       onCaptureRestarted?.();
     }
+    clearPreview();
     setCaptureError(null);
     setProgress(0);
     setState('STANDBY');
-  }, [state, onCaptureCancelled, onCaptureRestarted, cancelRaf, releaseMedia]);
+  }, [state, onCaptureCancelled, onCaptureRestarted, cancelRaf, clearPreview, releaseMedia]);
 
   const secondsRemaining = Math.max(0, Math.ceil((1 - progress) * 10));
   const recording = state === 'RECORDING';
@@ -466,6 +479,21 @@ export const CaptureChamber: FC<CaptureChamberProps> = ({
               </AnimatePresence>
             </div>
           </div>
+
+          {complete && previewUrl ? (
+            <div
+              className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-panel)] px-5 py-4"
+              aria-label="Captured specimen preview"
+            >
+              <div className="font-mono text-[0.6rem] uppercase tracking-wide-3 text-[var(--accent-brass)]">
+                §02a · Hear your specimen
+              </div>
+              <audio controls preload="metadata" src={previewUrl} className="mt-3 w-full max-w-md" />
+              <p className="mt-2 font-mono text-[0.65rem] text-[var(--text-faint)]">
+                Local preview only — the Bureau files a private replay on your dossier after issuance.
+              </p>
+            </div>
+          ) : null}
 
           {/* — CTAs — */}
           <div className="flex flex-wrap items-center gap-3">

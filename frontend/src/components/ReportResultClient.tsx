@@ -464,9 +464,6 @@ export function ReportResultClient({
     });
   }, [persistedReportId, variant.id]);
 
-  // Retained for fallback diagnostics; no dedicated error surface on this page.
-  void reportFetchError;
-
   return (
     <>
       <BackgroundLayers />
@@ -476,6 +473,24 @@ export function ReportResultClient({
 
         <ResultHeader caseFile={variant.caseFile} issuedAtIso={variant.issuedAtIso} />
         <VariantSwitcher activeId={activeId} onChange={onSwitchVariant} />
+
+        {reportFetchError && persistedReportId ? (
+          <div className="mx-auto mt-6 w-full max-w-7xl px-6 lg:px-10">
+            <div className="rounded-md border border-[var(--color-alert-red)]/40 bg-[color-mix(in_oklab,var(--color-alert-red)_12%,transparent)] px-5 py-4">
+              <p className="font-mono text-[0.6rem] uppercase tracking-wide-3 text-[var(--color-alert-red)]">
+                Could not load your filed dossier
+              </p>
+              <p className="mt-2 text-sm text-[var(--text-default)]">{reportFetchError}</p>
+              <p className="mt-2 font-mono text-[0.65rem] text-[var(--text-muted)]">
+                Report id · {persistedReportId}
+              </p>
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
+                The preview below is a stand-in variant until the API accepts the filing. If you
+                just recorded, retry after fixing the backend URL on the frontend host.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <main className="flex-1">
           {/* The hero+grid+captions cross-fade together when the variant changes. */}

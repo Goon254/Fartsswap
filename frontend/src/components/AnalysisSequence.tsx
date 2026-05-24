@@ -10,6 +10,11 @@ import { ProgressDial } from '@/components/ProgressDial';
 interface AnalysisSequenceProps {
   /** Called once the sequence finishes (and any final delay has elapsed). */
   onComplete: () => void;
+  /**
+   * Live record path: animation finished but upload/report API still in flight.
+   * Avoids showing "DOSSIER READY" before the backend has accepted the filing.
+   */
+  waitingForArchive?: boolean;
 }
 
 /**
@@ -27,7 +32,10 @@ interface AnalysisSequenceProps {
  *  - On reduced-motion, we collapse everything to a single 1s beat so the
  *    user still sees a transition rather than a hard jump.
  */
-export const AnalysisSequence: FC<AnalysisSequenceProps> = ({ onComplete }) => {
+export const AnalysisSequence: FC<AnalysisSequenceProps> = ({
+  onComplete,
+  waitingForArchive = false,
+}) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [progress, setProgress] = useState(0);
   const [finished, setFinished] = useState(false);
@@ -79,6 +87,12 @@ export const AnalysisSequence: FC<AnalysisSequenceProps> = ({ onComplete }) => {
 
   const currentStage = STAGES[Math.min(activeIndex, STAGES.length - 1)]!;
   const pct = Math.round(progress * 100);
+  const dialTitle = !finished
+    ? currentStage.title
+    : waitingForArchive
+      ? 'Filing with archive'
+      : 'DOSSIER READY';
+  const dialStatus = !finished ? 'PROCESSING' : waitingForArchive ? 'FILING' : 'ISSUING';
 
   return (
     <motion.section
@@ -107,8 +121,8 @@ export const AnalysisSequence: FC<AnalysisSequenceProps> = ({ onComplete }) => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Chip tone={finished ? 'green' : 'amber'} withDot>
-            {finished ? 'COMPLETE' : 'IN PROGRESS'}
+          <Chip tone={finished && !waitingForArchive ? 'green' : 'amber'} withDot>
+            {finished ? (waitingForArchive ? 'FILING' : 'COMPLETE') : 'IN PROGRESS'}
           </Chip>
           <Chip tone="brass">CLASSIFIED PIPELINE</Chip>
         </div>
@@ -124,14 +138,14 @@ export const AnalysisSequence: FC<AnalysisSequenceProps> = ({ onComplete }) => {
               </div>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
-                  key={currentStage.code + (finished ? '-done' : '')}
+                  key={currentStage.code + (finished ? `-done-${waitingForArchive}` : '')}
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
                   className="font-display text-[1.3rem] leading-tight text-[var(--text-strong)] max-w-[15ch]"
                 >
-                  {finished ? 'DOSSIER READY' : currentStage.title}
+                  {dialTitle}
                 </motion.div>
               </AnimatePresence>
               <div className="font-mono text-[0.55rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
@@ -145,7 +159,7 @@ export const AnalysisSequence: FC<AnalysisSequenceProps> = ({ onComplete }) => {
                     finished ? 'bg-[var(--color-alert-green)]' : 'bg-[var(--color-alert-amber)]',
                   ].join(' ')}
                 />
-                {finished ? 'ISSUING' : 'PROCESSING'}
+                {dialStatus}
               </span>
             </div>
           </ProgressDial>

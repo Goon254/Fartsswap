@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server';
 
+import {
+  buildUpstreamRequestUrl,
+  resolveUpstreamBaseUrl,
+  upstreamFetchErrorResponse,
+} from '@/lib/upstream-proxy';
+
 type RouteCtx = { params: Promise<{ path?: string[] }> };
 
-function upstreamBase(): string {
-  return process.env.FARTS_API_BASE_URL ?? 'http://127.0.0.1:3000';
-}
-
-function buildTargetUrl(request: Request, segments: string[]): string {
-  const tail = segments.map((s) => encodeURIComponent(s)).join('/');
-  const path = `/api/v1/commerce/artifacts${tail ? `/${tail}` : ''}`;
-  const u = new URL(request.url);
-  return `${upstreamBase().replace(/\/+$/, '')}${path}${u.search}`;
-}
-
 async function forward(request: Request, method: 'GET' | 'POST', segments: string[]): Promise<NextResponse> {
+  const base = resolveUpstreamBaseUrl();
+  if (!base.ok) return base.response;
+
+  const tail = segments.map((s) => encodeURIComponent(s)).join('/');
+  const upstreamPath = `/api/v1/commerce/artifacts${tail ? `/${tail}` : ''}`;
+  const target = buildUpstreamRequestUrl(base.baseUrl, upstreamPath, request.url);
   const cookie = request.headers.get('cookie') ?? '';
-  const target = buildTargetUrl(request, segments);
   const headers: Record<string, string> = {};
   if (cookie) headers.cookie = cookie;
   if (method === 'POST') {
@@ -35,8 +35,7 @@ async function forward(request: Request, method: 'GET' | 'POST', segments: strin
     const ct = res.headers.get('content-type') ?? 'application/json';
     return new NextResponse(text, { status: res.status, headers: { 'content-type': ct } });
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'fetch failed';
-    return NextResponse.json({ error: message }, { status: 502 });
+    return upstreamFetchErrorResponse(e);
   }
 }
 

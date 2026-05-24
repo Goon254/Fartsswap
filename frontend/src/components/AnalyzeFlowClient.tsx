@@ -61,6 +61,8 @@ export function AnalyzeFlowClient() {
     initialPath === 'fake' ? getRandomVariant().id : null,
   );
   const [pipelineError, setPipelineError] = useState<string | null>(null);
+  /** Live path: upload + create-report still running after the animation finishes. */
+  const [archivePending, setArchivePending] = useState(false);
 
   const challengeRef = useRef<Challenge | null>(null);
   if (challengeRef.current === null) {
@@ -150,6 +152,7 @@ export function AnalyzeFlowClient() {
     networkDoneRef.current = captureMode === 'simulated';
     reportIdRef.current = null;
     redirectingRef.current = false;
+    setArchivePending(false);
   }, [captureMode]);
 
   const startNetworkPipeline = useCallback(() => {
@@ -168,6 +171,7 @@ export function AnalyzeFlowClient() {
 
     networkDoneRef.current = false;
     reportIdRef.current = null;
+    setArchivePending(true);
 
     const idempotencyKey =
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -187,10 +191,12 @@ export function AnalyzeFlowClient() {
         );
         reportIdRef.current = report.id;
         networkDoneRef.current = true;
+        setArchivePending(false);
         tryRedirect();
       } catch (e) {
         networkDoneRef.current = false;
         reportIdRef.current = null;
+        setArchivePending(false);
         const message =
           e instanceof FartsApiError
             ? e.message
@@ -311,7 +317,10 @@ export function AnalyzeFlowClient() {
                     </div>
                   </div>
                 ) : null}
-                <AnalysisSequence onComplete={onAnalysisComplete} />
+                <AnalysisSequence
+                  onComplete={onAnalysisComplete}
+                  waitingForArchive={archivePending}
+                />
               </div>
             ) : null}
           </AnimatePresence>
