@@ -176,6 +176,23 @@ export interface GallerySubmissionResponse {
   submission: GallerySubmissionRow | null;
 }
 
+/** Ops moderation queue item (includes dossier summary). */
+export interface GalleryOpsSubmissionDetail extends GallerySubmissionRow {
+  report: {
+    fartName: string;
+    classification: string;
+    powerScore: number;
+    publicSlug?: string;
+    variantId?: string;
+    status: string;
+  };
+  openReportCount: number;
+}
+
+export interface GalleryOpsQueueResponse {
+  items: GalleryOpsSubmissionDetail[];
+}
+
 export interface GalleryPublicFeedItem {
   submissionId: string;
   reportId: string;

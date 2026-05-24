@@ -3,7 +3,7 @@ import { ModerationLabClient } from '@/components/ModerationLabClient';
 
 export const metadata: Metadata = {
   title: 'Moderation Lab',
-  description: 'Internal gallery review queue — opt-in publication control only.',
+  description: 'Staff review queue — approve or reject public feed submissions.',
   robots: { index: false, follow: false },
 };
 
