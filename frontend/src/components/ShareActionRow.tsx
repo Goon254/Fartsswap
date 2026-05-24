@@ -30,10 +30,6 @@ interface ShareActionRowProps {
   challengeHref: string;
   /** Fires before navigation when "Challenge a friend" is clicked. */
   onChallengeClick?: () => void;
-  /** Target href for the "Upgrade to Official PDF" premium button. */
-  premiumHref: string;
-  /** Fires before navigation when the premium CTA is clicked (for analytics). */
-  onPremiumClick?: () => void;
 }
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -58,8 +54,6 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
   shareLinkStatus,
   challengeHref,
   onChallengeClick,
-  premiumHref,
-  onPremiumClick,
 }) => (
   <motion.section
     initial={{ opacity: 0, y: 8 }}
@@ -119,19 +113,6 @@ export const ShareActionRow: FC<ShareActionRowProps> = ({
         <Button variant="secondary" onClick={onGenerateAnother}>
           Record another
         </Button>
-        <div className="relative">
-          <Button
-            variant="secondary"
-            href={premiumHref}
-            onClick={onPremiumClick}
-            trailing={<Arrow />}
-          >
-            Upgrade to Official PDF
-          </Button>
-          <span className="pointer-events-none absolute -top-2 right-2 rotate-3 rounded-sm border border-[var(--border-brass)] bg-[var(--bg-panel-strong)] px-1.5 py-px font-mono text-[0.5rem] uppercase tracking-wide-3 text-[var(--accent-brass)]">
-            EARLY ACCESS
-          </span>
-        </div>
       </div>
     </div>
     {saveShareCardStatus || shareLinkStatus ? (

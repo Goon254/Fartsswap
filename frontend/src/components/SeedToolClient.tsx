@@ -67,7 +67,6 @@ export const SeedToolClient: FC = () => {
     report: true,
     share: true,
     challenge: false,
-    premium: false,
   });
 
   // — Page view —
@@ -117,7 +116,7 @@ export const SeedToolClient: FC = () => {
 
   const hasOverrides = overriddenVariant !== baseVariant;
 
-  // — Build all four candidate hrefs. The challenge link rides our
+  // — Build all candidate hrefs. The challenge link rides our
   //   existing challenge.ts serializer so the rival score / classification
   //   propagate correctly when /challenge parses the URL. —
   const hrefs = useMemo<Record<SeedSurface, string>>(() => {
@@ -138,7 +137,6 @@ export const SeedToolClient: FC = () => {
     return {
       report: createSeedLink('report', baseVariant.id, payload, { from: 'seed' }),
       share: createSeedLink('share', baseVariant.id, payload, { from: 'seed' }),
-      premium: createSeedLink('premium', baseVariant.id, payload, { source: 'direct' }),
       challenge: challengeUrl,
     };
   }, [baseVariant.id, overriddenVariant, payload]);

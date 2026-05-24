@@ -40,19 +40,12 @@ const SURFACES: readonly {
     caption: 'Send-to-friend ceremonial dispute surface with rival-score framing.',
     basePath: '/challenge',
   },
-  {
-    id: 'premium',
-    index: 'P',
-    title: 'Premium certificate',
-    caption: 'Bureau certification services. PDF / wall-format previews.',
-    basePath: '/premium',
-  },
 ];
 
 /**
  * §III — Output surface selector.
  *
- * Four checkbox-style toggles, one per surface the seed tool can prep.
+ * Three checkbox-style toggles, one per surface the seed tool can prep.
  * Each toggle row carries the surface code, a short caption, and the
  * base path it will produce a link for. When the toggle is on, the
  * matching card in `SeedLinkPanel` renders below.

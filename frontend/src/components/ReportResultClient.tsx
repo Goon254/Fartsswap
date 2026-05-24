@@ -3,7 +3,6 @@
 import { AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArtifactCommerceUpsellStrip } from '@/components/ArtifactCommerceUpsellStrip';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { CaptionPanel } from '@/components/CaptionPanel';
 import { DiagnosticGrid } from '@/components/DiagnosticGrid';
@@ -26,13 +25,7 @@ import {
   type ChallengeType,
 } from '@/lib/challenge';
 import { buildCreateChallengeBody, createChallenge as registerChallenge } from '@/lib/challenge-api';
-import type {
-  ChallengeResponseDto,
-  RecordPremiumIntentBodyDto,
-  ReportResponseDto,
-} from '@/lib/farts-api-types';
-import { premiumLinkFor } from '@/lib/premium';
-import { recordPremiumIntent } from '@/lib/premium-api';
+import type { ChallengeResponseDto, ReportResponseDto } from '@/lib/farts-api-types';
 import { fetchReportById } from '@/lib/report-from-recording-api';
 import {
   getVariant,
@@ -160,7 +153,7 @@ async function copyTextToClipboard(text: string): Promise<void> {
  * each block re-runs their internal stagger.
  *
  * No URL sync for the variant switcher (deliberate). `variant` and optional
- * `reportId` query params are read for initial landing and commerce upsell.
+ * `reportId` query params are read for initial landing and persisted dossiers.
  */
 interface ReportResultClientProps {
   /**
@@ -168,10 +161,7 @@ interface ReportResultClientProps {
    * Falls back to the first variant when missing / unknown.
    */
   initialVariantId?: string | null;
-  /**
-   * Optional persisted report id (`?reportId=`) — when present, shows the
-   * post-generation artifact-commerce strip without altering the free dossier.
-   */
+  /** Optional persisted report id (`?reportId=`) for server-backed dossiers. */
   initialReportId?: string | null;
 }
 
@@ -192,11 +182,10 @@ export function ReportResultClient({
   const searchParams = useSearchParams();
   const seedPayload = useMemo(() => parseSeedPayload(searchParams), [searchParams]);
   const reportIdFromQuery = searchParams.get('reportId');
-  const commerceReportId = initialReportId ?? reportIdFromQuery;
   const persistedReportId = useMemo(() => {
-    const trimmed = commerceReportId?.trim();
+    const trimmed = (initialReportId ?? reportIdFromQuery)?.trim();
     return trimmed || null;
-  }, [commerceReportId]);
+  }, [initialReportId, reportIdFromQuery]);
 
   const [serverReport, setServerReport] = useState<ReportResponseDto | null>(null);
   const [reportFetchError, setReportFetchError] = useState<string | null>(null);
@@ -439,31 +428,6 @@ export function ReportResultClient({
     });
   }, [challenge]);
 
-  const premiumHref = useMemo(() => premiumLinkFor(variant.id, 'report'), [variant.id]);
-  const onPremiumClick = useCallback(() => {
-    track('premium_cta_clicked', {
-      variantId: variant.id,
-      location: 'report_action_row',
-      sourceSurface: 'report',
-    });
-
-    const intentBody: RecordPremiumIntentBodyDto = {
-      kind: 'premium_cta_clicked',
-      payload: {
-        variantId: variant.id,
-        location: 'report_action_row',
-        sourceSurface: 'report',
-      },
-      ...(persistedReportId ? { reportId: persistedReportId } : {}),
-    };
-
-    void recordPremiumIntent(JSON.stringify(intentBody), {
-      contentType: 'application/json',
-    }).catch(() => {
-      // Best-effort; href navigation to /premium is unchanged on failure.
-    });
-  }, [persistedReportId, variant.id]);
-
   return (
     <>
       <BackgroundLayers />
@@ -531,8 +495,6 @@ export function ReportResultClient({
             shareLinkStatus={shareLinkStatus}
             challengeHref={challengeHref}
             onChallengeClick={onChallengeClick}
-            premiumHref={premiumHref}
-            onPremiumClick={onPremiumClick}
           />
 
           <AnimatePresence mode="wait" initial={false}>
@@ -543,13 +505,6 @@ export function ReportResultClient({
             <CaptionPanel key={`captions-${variant.id}`} variant={variant} />
           </AnimatePresence>
 
-          {commerceReportId ? (
-            <ArtifactCommerceUpsellStrip
-              reportId={commerceReportId}
-              variantId={variant.id}
-              sourceSurface="report"
-            />
-          ) : null}
         </main>
 
         <FooterLoreStrip />

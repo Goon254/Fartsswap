@@ -76,17 +76,19 @@ export const FooterLoreStrip: FC = () => (
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Join our Community on Telegram"
-            className={[
-              'inline-flex items-center gap-2 rounded-sm px-2 py-[0.3rem]',
-              'font-mono text-[0.62rem] uppercase tracking-wide-3',
-              'ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-alert-cerulean)_45%,transparent)]',
-              'bg-[color-mix(in_oklab,var(--color-alert-cerulean)_10%,transparent)]',
-              'text-[var(--color-alert-cerulean)]',
-              'transition-colors hover:bg-[color-mix(in_oklab,var(--color-alert-cerulean)_18%,transparent)]',
-            ].join(' ')}
+            className={footerExternalLinkClass('cerulean')}
           >
             <TelegramIcon />
             Telegram
+          </a>
+          <a
+            href="https://buymeacoffee.com/Goon254"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={footerExternalLinkClass('amber')}
+          >
+            <GasFundIcon />
+            Contribute to the Gas Fund
           </a>
           <Chip tone="neutral">v0.7 · ALPHA</Chip>
           <Chip tone="green" withDot>
@@ -97,6 +99,35 @@ export const FooterLoreStrip: FC = () => (
     </div>
   </footer>
 );
+
+const FOOTER_LINK_TONES = {
+  cerulean: {
+    ring: 'ring-[color-mix(in_oklab,var(--color-alert-cerulean)_45%,transparent)]',
+    bg: 'bg-[color-mix(in_oklab,var(--color-alert-cerulean)_10%,transparent)]',
+    fg: 'text-[var(--color-alert-cerulean)]',
+    hover: 'hover:bg-[color-mix(in_oklab,var(--color-alert-cerulean)_18%,transparent)]',
+  },
+  amber: {
+    ring: 'ring-[color-mix(in_oklab,var(--color-alert-amber)_45%,transparent)]',
+    bg: 'bg-[color-mix(in_oklab,var(--color-alert-amber)_10%,transparent)]',
+    fg: 'text-[var(--color-alert-amber)]',
+    hover: 'hover:bg-[color-mix(in_oklab,var(--color-alert-amber)_18%,transparent)]',
+  },
+} as const;
+
+function footerExternalLinkClass(tone: keyof typeof FOOTER_LINK_TONES): string {
+  const t = FOOTER_LINK_TONES[tone];
+  return [
+    'inline-flex items-center gap-2 rounded-sm px-2 py-[0.3rem]',
+    'font-mono text-[0.62rem] uppercase tracking-wide-3',
+    'ring-1 ring-inset',
+    t.ring,
+    t.bg,
+    t.fg,
+    'transition-colors',
+    t.hover,
+  ].join(' ');
+}
 
 /** Paper-plane mark (Telegram / Send) at chip icon scale. */
 const TelegramIcon: FC = () => (
@@ -113,5 +144,26 @@ const TelegramIcon: FC = () => (
   >
     <path d="m22 2-7 20-4-9-9-4z" />
     <path d="M22 2 11 13" />
+  </svg>
+);
+
+/** Coffee cup mark for the Gas Fund link. */
+const GasFundIcon: FC = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M10 2v2" />
+    <path d="M14 2v2" />
+    <path d="M16 8a4 4 0 0 1-8 0V6h8Z" />
+    <path d="M6 8h16v5a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V8Z" />
+    <path d="M6 14H4a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h2" />
   </svg>
 );

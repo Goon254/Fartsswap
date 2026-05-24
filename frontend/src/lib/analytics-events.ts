@@ -284,7 +284,7 @@ export interface EventMap {
   /** Fires when a press exhibit is opened (live link) or its reference is copied. */
   press_asset_opened: {
     assetId: string;
-    assetType: 'dossier' | 'share_card' | 'challenge_notice' | 'premium_certificate';
+    assetType: 'dossier' | 'share_card' | 'challenge_notice' | 'public_feed';
     method: 'click' | 'copy_ref';
   };
   /** Fires when a boilerplate quote is copied to the clipboard. */

@@ -13,7 +13,6 @@ import { ShareVariantSwitcher } from '@/components/ShareVariantSwitcher';
 import { pageView, track } from '@/lib/analytics';
 import { createChallenge, createChallengeLink } from '@/lib/challenge';
 import { exportShareCard, shareCardFileName, type ExportShareCardResult } from '@/lib/export-share-card';
-import { premiumLinkFor } from '@/lib/premium';
 import {
   getRandomVariant,
   getVariantById,
@@ -189,15 +188,6 @@ export function ShareFlowClient({ initialVariantId }: ShareFlowClientProps = {})
     });
   }, [challenge]);
 
-  const premiumHref = useMemo(() => premiumLinkFor(variant.id, 'share'), [variant.id]);
-  const onPremiumClick = useCallback(() => {
-    track('premium_cta_clicked', {
-      variantId: variant.id,
-      location: 'share_actions',
-      sourceSurface: 'share',
-    });
-  }, [variant.id]);
-
   return (
     <>
       <BackgroundLayers />
@@ -271,8 +261,6 @@ export function ShareFlowClient({ initialVariantId }: ShareFlowClientProps = {})
               reportHref={`/report?variant=${encodeURIComponent(variant.id)}`}
               challengeHref={challengeHref}
               onChallengeClick={onChallengeClick}
-              premiumHref={premiumHref}
-              onPremiumClick={onPremiumClick}
             />
           </div>
         </section>

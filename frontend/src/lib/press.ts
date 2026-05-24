@@ -93,7 +93,7 @@ export const MEDIA_FACTS: readonly MediaFact[] = [
   {
     id: 'artifact_types',
     label: 'ARTIFACT TYPES',
-    value: 'Dossier · share card · PDF certificate · wall certificate · theme pack',
+    value: 'Dossier · share card · challenge notice · public feed',
     note: 'Issued under §6.3 (Artifact Issuance)',
   },
   {
@@ -101,12 +101,6 @@ export const MEDIA_FACTS: readonly MediaFact[] = [
     label: 'CHALLENGE MECHANISM',
     value: 'Ceremonial dispute via signed link',
     note: 'Sender / recipient perspectives recognised',
-  },
-  {
-    id: 'premium_certificates',
-    label: 'PREMIUM CERTIFICATES',
-    value: 'Official PDF · Printable Wall · Theme Pack',
-    note: 'Early-access roster; no payments processed today',
   },
   {
     id: 'recording_ceiling',
@@ -137,11 +131,7 @@ export const MEDIA_FACTS: readonly MediaFact[] = [
 // Sample asset gallery
 // ---------------------------------------------------------------------------
 
-export type PressAssetType =
-  | 'dossier'
-  | 'share_card'
-  | 'challenge_notice'
-  | 'premium_certificate';
+export type PressAssetType = 'dossier' | 'share_card' | 'challenge_notice' | 'public_feed';
 
 export interface PressAsset {
   id: string;
@@ -196,15 +186,15 @@ export const PRESS_ASSETS: readonly PressAsset[] = [
     aspect: '16 / 10',
   },
   {
-    id: 'asset_premium_certificate',
+    id: 'asset_public_feed',
     exhibit: 'EXHIBIT D',
-    type: 'premium_certificate',
-    name: 'Official PDF Certificate · Specimen A',
+    type: 'public_feed',
+    name: 'Public Feed · Moderated Gallery',
     caption:
-      'Premium archival issue. A4 proportions, embossed seal, serialised filing number, deluxe typography.',
-    liveUrl: `/premium?variant=${SAMPLE_VARIANT}&source=press`,
-    reference: 'CERT-2026-#####-A · archival',
-    aspect: '1 / 1.414',
+      'Opt-in specimens published after operator review. Ranked by power score with Bureau classification labels.',
+    liveUrl: '/feed',
+    reference: 'FEED · moderated · opt-in only',
+    aspect: '16 / 11',
   },
 ];
 

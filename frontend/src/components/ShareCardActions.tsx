@@ -21,10 +21,6 @@ interface ShareCardActionsProps {
   challengeHref: string;
   /** Fired before navigation when "Send to friend" is clicked. */
   onChallengeClick?: () => void;
-  /** Target href for the premium upsell ("Order Printable Certificate"). */
-  premiumHref: string;
-  /** Fired before navigation when the premium CTA is clicked. */
-  onPremiumClick?: () => void;
 }
 
 const EASE = [0.22, 0.61, 0.36, 1] as const;
@@ -51,8 +47,6 @@ export const ShareCardActions: FC<ShareCardActionsProps> = ({
   onOpenFullDossier,
   challengeHref,
   onChallengeClick,
-  premiumHref,
-  onPremiumClick,
 }) => {
   const [phase, setPhase] = useState<'idle' | 'preparing' | 'saved' | 'error'>('idle');
   const [copyPhase, setCopyPhase] = useState<'idle' | 'copied'>('idle');
@@ -137,19 +131,6 @@ export const ShareCardActions: FC<ShareCardActionsProps> = ({
         >
           Open full dossier
         </Button>
-        <div className="relative">
-          <Button
-            variant="secondary"
-            href={premiumHref}
-            onClick={onPremiumClick}
-            trailing={<Arrow />}
-          >
-            Order printable certificate
-          </Button>
-          <span className="pointer-events-none absolute -top-2 right-2 rotate-3 rounded-sm border border-[var(--border-brass)] bg-[var(--bg-panel-strong)] px-1.5 py-px font-mono text-[0.5rem] uppercase tracking-wide-3 text-[var(--accent-brass)]">
-            EARLY ACCESS
-          </span>
-        </div>
         <Button variant="ghost" onClick={onGenerateAnother}>
           Generate another
         </Button>

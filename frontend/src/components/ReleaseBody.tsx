@@ -76,14 +76,13 @@ export const ReleaseBody: FC = () => (
         <p>
           The Bureau has determined that civilization currently lacks adequate filing infrastructure
           for its most neglected audio format. The launch addresses this gap through standardised
-          reporting, brass-grade certification options, and a designated challenge mechanism for
+          reporting, brass-grade ceremonial filing, and a designated challenge mechanism for
           disputes between issuing parties.
         </p>
         <p>
           Each report is engineered for archival and screenshot use. Share-card output is rendered
-          at a vertical 9:16 specification suitable for hand-held viewing surfaces. Premium
-          artifacts &mdash; including the Official PDF Certificate and the Printable Wall
-          Certificate &mdash; extend the dossier into archival and print contexts.
+          at a vertical 9:16 specification suitable for hand-held viewing surfaces. Challenge links
+          and the moderated public feed extend the dossier into rivalry and collective filing.
         </p>
         <p>
           Founding designations are being processed under §0.1 of the Release Provision. The public

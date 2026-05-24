@@ -11,7 +11,6 @@ const STAFF_PAGE_PREFIXES = [
   '/moderation-lab',
   '/fulfillment-lab',
   '/sponsor-lab',
-  '/plans-lab',
 ] as const;
 
 function isStaffPage(pathname: string): boolean {
@@ -60,7 +59,6 @@ export const config = {
     '/moderation-lab/:path*',
     '/fulfillment-lab/:path*',
     '/sponsor-lab/:path*',
-    '/plans-lab/:path*',
     '/gallery-ops',
     '/mission-control',
     '/ops',

@@ -2,8 +2,8 @@
  * Creator seeding payload + helpers.
  *
  * The seed tool needs to ship a lightweight set of "overrides" through
- * URLs into the existing product surfaces (/report, /share, /premium,
- * /challenge) without breaking the default flow. This module defines:
+ * URLs into the existing product surfaces (/report, /share, /challenge)
+ * without breaking the default flow. This module defines:
  *
  *   - the typed payload shape (`SeedPayload`)
  *   - URL serialization / parsing under the `s_*` namespace
@@ -31,7 +31,7 @@ export type PlatformPreset =
   | 'reddit'
   | 'discord';
 
-export type SeedSurface = 'report' | 'share' | 'challenge' | 'premium';
+export type SeedSurface = 'report' | 'share' | 'challenge';
 
 export interface SeedPayload {
   /** Display name used as the dossier's `subjectTitle`. */
@@ -201,13 +201,8 @@ export function createSeedLink(
 ): string {
   const params = new URLSearchParams({ variant: variantId, ...extras });
   serializeSeedPayload(payload).forEach((value, key) => params.set(key, value));
-  const base = surface === 'report'
-    ? '/report'
-    : surface === 'share'
-      ? '/share'
-      : surface === 'premium'
-        ? '/premium'
-        : '/challenge';
+  const base =
+    surface === 'report' ? '/report' : surface === 'share' ? '/share' : '/challenge';
   return `${base}?${params.toString()}`;
 }
 
@@ -299,9 +294,7 @@ export function generateOutreachCopy(
       ? 'share card'
       : surface === 'challenge'
         ? 'challenge dispatch'
-        : surface === 'premium'
-          ? 'official certificate'
-          : 'dossier';
+        : 'dossier';
 
   switch (platform) {
     case 'tiktok':

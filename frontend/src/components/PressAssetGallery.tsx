@@ -19,8 +19,8 @@ const EASE = [0.22, 0.61, 0.36, 1] as const;
  * Sample asset gallery, framed like the exhibit list at the back of a
  * press kit.
  *
- * Four assets — dossier, share card, challenge notice, premium
- * certificate — are rendered as compact "exhibit" thumbnails with the
+ * Four assets — dossier, share card, challenge notice, public feed —
+ * are rendered as compact "exhibit" thumbnails with the
  * same outer frame:
  *
  *   [EXHIBIT A · DOSSIER]                       [aspect ratio · type code]
@@ -153,8 +153,8 @@ function assetTypeLabel(type: PressAsset['type']): string {
       return 'SHARE CARD · /share';
     case 'challenge_notice':
       return 'CHALLENGE · /challenge';
-    case 'premium_certificate':
-      return 'CERTIFICATE · /premium';
+    case 'public_feed':
+      return 'PUBLIC FEED · /feed';
   }
 }
 
@@ -170,8 +170,8 @@ const AssetThumbnail: FC<{ asset: PressAsset }> = ({ asset }) => {
       return <ShareCardThumb />;
     case 'challenge_notice':
       return <ChallengeNoticeThumb />;
-    case 'premium_certificate':
-      return <CertificateThumb />;
+    case 'public_feed':
+      return <PublicFeedThumb />;
   }
 };
 
@@ -298,71 +298,34 @@ const ChallengeNoticeThumb: FC = () => (
   </ThumbFrame>
 );
 
-/** Premium certificate still — A4 vertical. */
-const CertificateThumb: FC = () => (
-  <div
-    className="absolute inset-0 flex flex-col"
-    style={{
-      background: 'linear-gradient(180deg, #fbf7ed 0%, #f5efe0 100%)',
-      color: '#1f2a28',
-    }}
-  >
-    <div className="flex items-start justify-between px-4 pt-3">
-      <div className="font-mono text-[0.5rem] uppercase tracking-wide-3" style={{ color: '#846423' }}>
-        <div>BUREAU OF ACOUSTIC GASOLOGY</div>
-        <div className="text-[#5a6361]">STATION OPS-04 · MMXXVI</div>
-      </div>
-      <div className="text-right font-mono text-[0.5rem] uppercase tracking-wide-3" style={{ color: '#846423' }}>
-        <div>SERIAL №</div>
-        <div className="text-[#1f2a28]">CERT-2026-04412-A</div>
-      </div>
-    </div>
-    <div className="px-4 pt-4">
-      <div className="font-mono text-[0.5rem] uppercase tracking-wide-3" style={{ color: '#846423' }}>
-        OFFICIAL CERTIFICATION OF ACOUSTIC EVENT
-      </div>
-      <div
-        className="mt-1 font-display"
-        style={{
-          fontSize: 'clamp(1rem, 3.4vw, 1.5rem)',
-          lineHeight: 1.0,
-          color: '#1f2a28',
-          fontWeight: 500,
-          letterSpacing: '-0.015em',
-        }}
-      >
-        Velvet Foghorn
-      </div>
-      <div
-        className="mt-0.5 font-display italic"
-        style={{ fontSize: '0.7rem', color: '#3a4644' }}
-      >
-        The Midnight Bean
-      </div>
-    </div>
-    <div className="mt-auto flex items-end justify-between border-t px-4 pb-3 pt-3" style={{ borderColor: 'rgba(31,42,40,0.15)' }}>
-      <div className="flex items-center gap-2" style={{ color: '#846423' }}>
-        <Seal size={28} className="opacity-90" />
-        <div className="font-mono text-[0.45rem] uppercase tracking-wide-3">CERTIFIED · B·A·G</div>
-      </div>
-      <div className="text-right">
+/** Public feed still — ranked gallery grid. */
+const PublicFeedThumb: FC = () => (
+  <ThumbFrame label="PUBLIC FEED · MODERATED">
+    <div className="grid grid-cols-2 gap-2 px-5 py-5">
+      {[
+        { name: 'Velvet Foghorn', score: 73, tone: 'amber' as const },
+        { name: 'Brass Kettle', score: 61, tone: 'brass' as const },
+        { name: 'Silent Assassin', score: 88, tone: 'green' as const },
+        { name: 'Cerulean Drift', score: 54, tone: 'cerulean' as const },
+      ].map((row) => (
         <div
-          className="font-display italic"
-          style={{
-            fontSize: '0.75rem',
-            color: '#1f2a28',
-            borderBottom: '1px solid #1f2a28',
-            paddingBottom: 1,
-          }}
+          key={row.name}
+          className="rounded-sm border border-[var(--border-subtle)] bg-[var(--bg-panel-strong)] px-3 py-2"
         >
-          L. Methane
+          <div className="truncate font-display text-sm leading-tight text-[var(--text-strong)]">
+            {row.name}
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            <Chip tone={row.tone}>{row.score}</Chip>
+            <span className="font-mono text-[0.45rem] uppercase tracking-wide-3 text-[var(--text-faint)]">
+              OPT-IN
+            </span>
+          </div>
         </div>
-        <div className="mt-0.5 font-mono text-[0.45rem] uppercase tracking-wide-3" style={{ color: '#5a6361' }}>
-          DIRECTOR · §4.2
-        </div>
-      </div>
+      ))}
     </div>
-  </div>
+    <ThumbFooter left="FEED · ranked by score" right="SURFACE · /feed" />
+  </ThumbFrame>
 );
 
 // ---------------------------------------------------------------------------

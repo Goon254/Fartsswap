@@ -2,7 +2,6 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
-import { ArtifactCommerceUpsellStrip } from '@/components/ArtifactCommerceUpsellStrip';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { BadgeCabinet } from '@/components/BadgeCabinet';
 import { ClosingNotice } from '@/components/ClosingNotice';
@@ -202,14 +201,6 @@ export const FartWrappedClient: FC = () => {
     [issue.wrappedCycleId],
   );
 
-  const commerceReportId =
-    envelope?.issue &&
-    (envelope.provenance === 'live' || envelope.provenance === 'low_volume') &&
-    typeof envelope.issue.featuredReportId === 'string' &&
-    envelope.issue.featuredReportId.length > 0
-      ? envelope.issue.featuredReportId
-      : null;
-
   const showStrip = fetchFailed || envelope !== undefined;
 
   return (
@@ -227,14 +218,6 @@ export const FartWrappedClient: FC = () => {
           ) : null}
           <WrappedHeader issue={issue} />
           <WrappedHeroCard issue={issue} onClassificationOpened={onClassificationOpened} />
-
-          {commerceReportId ? (
-            <ArtifactCommerceUpsellStrip
-              reportId={commerceReportId}
-              variantId={issue.primaryVariantId}
-              sourceSurface="wrapped"
-            />
-          ) : null}
 
           <section className="mx-auto w-full max-w-7xl px-6 lg:px-10">
             <header className="mb-6 flex flex-wrap items-center gap-3 font-mono text-[0.65rem] uppercase tracking-wide-3 text-[var(--accent-brass)]">

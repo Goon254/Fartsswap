@@ -53,11 +53,6 @@ const SURFACE_META: Record<
     index: 'L3',
     eyebrow: 'SEND-TO-FRIEND DISPUTE',
   },
-  premium: {
-    title: 'Premium certificate · /premium',
-    index: 'L4',
-    eyebrow: 'BUREAU CERTIFICATION SERVICES',
-  },
 };
 
 /**

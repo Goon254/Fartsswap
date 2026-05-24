@@ -11,9 +11,8 @@ export const metadata: Metadata = {
 /**
  * /report — the result experience.
  *
- * Reads optional `?variant=<id>` and `?reportId=<uuid>` search params so flows
- * with a persisted report can surface post-generation commerce without blocking
- * the free dossier.
+ * Reads optional `?variant=<id>` and `?reportId=<uuid>` search params for
+ * persisted dossiers and share/challenge flows.
  */
 interface ReportPageProps {
   searchParams?: Promise<{ variant?: string; reportId?: string }>;
