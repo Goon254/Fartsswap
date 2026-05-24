@@ -71,6 +71,23 @@ export const FooterLoreStrip: FC = () => (
         </p>
 
         <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          <a
+            href="https://t.me/fartsswap_community"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Join our Community on Telegram"
+            className={[
+              'inline-flex items-center gap-2 rounded-sm px-2 py-[0.3rem]',
+              'font-mono text-[0.62rem] uppercase tracking-wide-3',
+              'ring-1 ring-inset ring-[color-mix(in_oklab,var(--color-alert-cerulean)_45%,transparent)]',
+              'bg-[color-mix(in_oklab,var(--color-alert-cerulean)_10%,transparent)]',
+              'text-[var(--color-alert-cerulean)]',
+              'transition-colors hover:bg-[color-mix(in_oklab,var(--color-alert-cerulean)_18%,transparent)]',
+            ].join(' ')}
+          >
+            <TelegramIcon />
+            Telegram
+          </a>
           <Chip tone="neutral">v0.7 · ALPHA</Chip>
           <Chip tone="green" withDot>
             STATION ONLINE
@@ -79,4 +96,22 @@ export const FooterLoreStrip: FC = () => (
       </div>
     </div>
   </footer>
+);
+
+/** Paper-plane mark (Telegram / Send) at chip icon scale. */
+const TelegramIcon: FC = () => (
+  <svg
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="m22 2-7 20-4-9-9-4z" />
+    <path d="M22 2 11 13" />
+  </svg>
 );
