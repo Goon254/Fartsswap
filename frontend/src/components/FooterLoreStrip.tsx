@@ -3,7 +3,6 @@
 import { motion } from 'framer-motion';
 import type { FC } from 'react';
 import { Chip } from '@/components/Chip';
-import { Seal } from '@/components/Seal';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Wordmark } from '@/components/Wordmark';
 import { fadeUp, staggerParent, transitionBrand } from '@/lib/motion';
@@ -53,43 +52,49 @@ export const FooterLoreStrip: FC = () => (
       </motion.ul>
 
       {/* — colophon — */}
-      <div className="mt-12 grid grid-cols-1 gap-8 border-t border-[var(--border-subtle)] pt-10 md:grid-cols-[auto_1fr_auto] md:items-center">
-        <div className="flex items-center gap-5">
-          <Seal size={56} className="text-[var(--accent-brass)] opacity-90" />
-          <div>
+      <div className="mt-12 border-t border-[var(--border-subtle)] pt-10">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-3 lg:items-start lg:gap-8">
+          <div className="flex flex-col items-center gap-2 text-center lg:items-start lg:text-left">
             <Wordmark size="md" />
-            <div className="mt-1 font-mono text-[0.6rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
+            <div className="font-mono text-[0.6rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
               Bureau of Acoustic Gasology · MMXXVI
             </div>
           </div>
+
+          <p className="mx-auto max-w-[42ch] text-center text-[0.65rem] leading-relaxed text-[var(--text-muted)] lg:mx-0 lg:max-w-none lg:self-center lg:px-2">
+            Fartsswap.com is a satirical product. No diagnosis is performed; no clinical relationship
+            is created; no methane is regulated. All reports are issued under the Bureau&apos;s
+            standing Parody Authority. Subject to revision without further dignity.
+          </p>
+
+          <div className="mx-auto flex w-full max-w-xs flex-col gap-2 lg:mx-0 lg:ml-auto lg:w-auto lg:max-w-none lg:items-end">
+            <a
+              href="https://t.me/fartsswap_community"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Join our Community on Telegram"
+              className={[footerExternalLinkClass('cerulean'), 'w-full justify-center lg:w-auto lg:justify-start'].join(
+                ' ',
+              )}
+            >
+              <TelegramIcon />
+              Telegram
+            </a>
+            <a
+              href="https://buymeacoffee.com/Goon254"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={[footerExternalLinkClass('amber'), 'w-full justify-center lg:w-auto lg:justify-start'].join(
+                ' ',
+              )}
+            >
+              <GasFundIcon />
+              Contribute to the Gas Fund
+            </a>
+          </div>
         </div>
 
-        <p className="max-w-[60ch] text-xs leading-relaxed text-[var(--text-muted)] md:px-6">
-          Fartsswap.com is a satirical product. No diagnosis is performed; no clinical relationship
-          is created; no methane is regulated. All reports are issued under the Bureau&apos;s
-          standing Parody Authority. Subject to revision without further dignity.
-        </p>
-
-        <div className="flex flex-wrap items-center gap-2 md:justify-end">
-          <a
-            href="https://t.me/fartsswap_community"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Join our Community on Telegram"
-            className={footerExternalLinkClass('cerulean')}
-          >
-            <TelegramIcon />
-            Telegram
-          </a>
-          <a
-            href="https://buymeacoffee.com/Goon254"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={footerExternalLinkClass('amber')}
-          >
-            <GasFundIcon />
-            Contribute to the Gas Fund
-          </a>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-2 border-t border-[var(--border-subtle)] pt-6 lg:justify-end">
           <Chip tone="neutral">v0.7 · ALPHA</Chip>
           <Chip tone="green" withDot>
             STATION ONLINE
