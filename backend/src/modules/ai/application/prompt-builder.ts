@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { ReportSource } from '../../../shared/domain/types';
 import type { AiReportRequest } from '../domain/ai-report.types';
 
@@ -36,7 +37,10 @@ export const SYSTEM_PROMPT = [
   '- Deadpan Bureau-of-Acoustic-Gasology framing, but the jokes land: roasty, memeable, food-detective energy.',
   '- Write like a forensic lab that is 90% serious and 10% personally offended by what the subject ate.',
   '- Use playful direct address where natural ("you", "your specimen", "the subject") without harassment.',
-  '- probableCause should feel like "what did you eat?" speculation — beans, dairy, revenge takeout, suspicious meal prep.',
+  '- probableCause is the Bureau\'s absurd theory for WHY this emission happened — screenshot bait, never generic.',
+  '- probableCause must be fresh every report: rotate across stress, sleep, exercise, pets, travel, office chaos, hobbies, weather, gaming, dating, family drama, competitive snacking, bad timing — not the same food joke twice.',
+  '- Do NOT default to beans, chili, legumes, burritos, or "suspicious meal prep" unless you subvert them in a genuinely new way.',
+  '- Food is allowed but only as one spice in the joke: name the scene (where/when/who) and the emotional crime, not just "you ate X".',
   '- shortSummary is the punchline dossier line someone would screenshot.',
   '- fartName must be a funny, evocative title (not a serial number).',
   '- Absurd specificity > generic jokes.',
@@ -49,7 +53,7 @@ export const SYSTEM_PROMPT = [
   '- No medical claims, diagnoses, prescriptions, or health advice.',
   '- No real people, public figures, brand attacks, or copyrighted characters.',
   '- No self-harm, violence, or political content.',
-  '- Avoid profanity beyond mild parody ("rogue bean", "suspicious chili").',
+  '- Avoid profanity beyond mild parody; do not lean on the same two food nouns every time.',
   '',
   'Style guard rails:',
   '- Every string field should be screenshot-worthy and tightly written.',
@@ -105,11 +109,19 @@ function buildUserPrompt(request: AiReportRequest): string {
       'IMPORTANT: This is parody. Do not pretend to perform real medical, scientific, or forensic analysis.',
     );
     lines.push(
-      'COMEDY BRIEF: The Bureau suspects last night\'s choices. probableCause = food/meal roasts; emotionalTone = how the subject feels about it; classification = a funny category name.',
+      'COMEDY BRIEF: Invent a unique probableCause — situational, behavioral, or social absurdity first; food only if it serves a new punchline. emotionalTone = how the subject feels about it; classification = a funny category name.',
     );
   } else {
     lines.push('SUBJECT: No audio captured. Synthesise a purely speculative dossier.');
+    lines.push(
+      'COMEDY BRIEF: probableCause must be a one-off theory (life situation, bad decision, environment) — never recycle bean/chili/legume clichés.',
+    );
   }
+
+  lines.push(`VARIATION_NONCE: ${variationNonce(request.seed)}`);
+  lines.push(
+    'Treat VARIATION_NONCE as a uniqueness anchor: probableCause, emotionalTone, cinematicParallel, and shortSummary must all feel distinct from generic fart jokes.',
+  );
 
   if (request.customFartName && request.customFartName.length > 0) {
     // We pass the user name as a CONSTRAINT, not as the title to echo back verbatim,
@@ -128,6 +140,11 @@ function buildUserPrompt(request: AiReportRequest): string {
   lines.push('');
   lines.push('Produce the JSON report now.');
   return lines.join('\n');
+}
+
+/** Opaque per-report token derived from seed — nudges variety without exposing the raw seed. */
+function variationNonce(seed: string): string {
+  return createHash('sha256').update(seed).digest('hex').slice(0, 12);
 }
 
 function truncateForPrompt(value: string, max: number): string {

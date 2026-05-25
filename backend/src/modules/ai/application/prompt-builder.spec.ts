@@ -34,6 +34,19 @@ describe('buildPrompt', () => {
     expect(user).not.toMatch(/container/i);
   });
 
+  it('includes a deterministic variation nonce and anti-cliché comedy brief', () => {
+    const { user } = buildPrompt(baseFake);
+    expect(user).toMatch(/^VARIATION_NONCE: [a-f0-9]{12}$/m);
+    expect(user).toMatch(/bean\/chili\/legume/i);
+    const again = buildPrompt({ ...baseFake, seed: 'other-seed' });
+    expect(again.user).not.toBe(user);
+  });
+
+  it('system prompt discourages repetitive food clichés for probableCause', () => {
+    expect(SYSTEM_PROMPT).toMatch(/Do NOT default to beans/i);
+    expect(SYSTEM_PROMPT).toMatch(/fresh every report/i);
+  });
+
   it('user prompt for audio source includes safe metadata and parody disclaimer', () => {
     const { user } = buildPrompt({
       source: ReportSource.AUDIO_RECORDING,

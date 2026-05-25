@@ -32,7 +32,8 @@ export interface AiReportRequest {
   };
   /**
    * Deterministic seed used by the fallback generator + for the
-   * server-controlled report hash. Never sent to the model.
+   * server-controlled report hash. Only an opaque `VARIATION_NONCE`
+   * derived from this value is included in prompts (not the raw seed).
    */
   seed: string;
   /**
