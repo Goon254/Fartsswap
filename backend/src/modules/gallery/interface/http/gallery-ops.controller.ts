@@ -9,10 +9,11 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { FastifyRequest } from 'fastify';
+import { ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { RateLimit } from '../../../../shared/interface/http/rate-limit.decorator';
 import { OpsKeyGuard } from '../../../ops/interface/http/ops-key.guard';
 import { GalleryApplicationService } from '../../application/gallery-application.service';
@@ -47,6 +48,20 @@ export class GalleryOpsController {
   @ApiOperation({ summary: 'Ops detail for one submission' })
   async one(@Param('id') id: string) {
     return this.gallery.getOpsSubmission(id);
+  }
+
+  @Get('submissions/:id/audio')
+  @RateLimit({ max: 120, windowSeconds: 60 })
+  @ApiOperation({ summary: 'Staff-only specimen audio for moderation review' })
+  @ApiOkResponse({ description: 'Captured specimen audio bytes' })
+  async submissionAudio(
+    @Param('id') id: string,
+    @Res() reply: FastifyReply,
+  ): Promise<void> {
+    const { body, contentType } = await this.gallery.getOpsSubmissionAudioContent(id);
+    void reply.header('Content-Type', contentType);
+    void reply.header('Cache-Control', 'private, no-store');
+    void reply.send(body);
   }
 
   @Get('submissions/:id/decisions')

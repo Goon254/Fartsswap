@@ -2,6 +2,11 @@ import type { GalleryOpsQueueResponse, GallerySubmissionRow } from '@/lib/farts-
 
 export type ModerationLabHeaders = Record<string, string>;
 
+/** Staff-authenticated audio for moderation queue review (pending or live). */
+export function buildModerationSubmissionAudioUrl(submissionId: string): string {
+  return `/api/ops/gallery/submissions/${encodeURIComponent(submissionId)}/audio`;
+}
+
 async function parseModerateResponse(res: Response): Promise<GallerySubmissionRow> {
   const text = await res.text();
   if (!res.ok) {

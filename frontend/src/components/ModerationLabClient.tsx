@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
 import { Button } from '@/components/Button';
 import { FooterLoreStrip } from '@/components/FooterLoreStrip';
+import { ModerationSpecimenAudio } from '@/components/ModerationSpecimenAudio';
 import { Navbar } from '@/components/Navbar';
 import { pageView } from '@/lib/analytics';
 import type { GalleryOpsSubmissionDetail } from '@/lib/farts-api-types';
@@ -73,6 +74,12 @@ function QueueCard(props: {
           </span>
         ) : null}
       </header>
+
+      <ModerationSpecimenAudio
+        submissionId={item.id}
+        playbackAvailable={item.playbackAvailable}
+        audioContentType={item.audioContentType}
+      />
 
       <div className="mt-5 flex flex-wrap gap-3">
         {view === 'pending' ? (
@@ -182,9 +189,10 @@ export function ModerationLabClient() {
             </p>
             <h1 className="mt-2 font-display text-3xl text-[var(--text-strong)]">Review public feed posts</h1>
             <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]">
-              When someone taps &ldquo;Post to public feed,&rdquo; their specimen waits here.{' '}
-              <strong className="font-medium text-[var(--text-primary)]">Approve</strong> puts it on the bulletin;{' '}
-              <strong className="font-medium text-[var(--text-primary)]">Reject</strong> keeps it off.
+              When someone taps &ldquo;Post to public feed,&rdquo; their specimen waits here. Use{' '}
+              <strong className="font-medium text-[var(--text-primary)]">Hear specimen</strong> on each card before you
+              decide. <strong className="font-medium text-[var(--text-primary)]">Approve</strong> puts it on the
+              bulletin; <strong className="font-medium text-[var(--text-primary)]">Reject</strong> keeps it off.
             </p>
           </header>
 

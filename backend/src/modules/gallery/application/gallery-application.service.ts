@@ -93,6 +93,9 @@ export interface GalleryOpsSubmissionDetail extends GallerySubmissionRow {
     status: string;
   };
   openReportCount: number;
+  /** True when staff may stream audio via GET /ops/gallery/submissions/:id/audio. */
+  playbackAvailable: boolean;
+  audioContentType?: string;
 }
 
 export type GalleryModerateAction =
@@ -391,6 +394,27 @@ export class GalleryApplicationService {
     };
   }
 
+  /** Staff moderation replay — any queue status with a stored audio specimen. */
+  async getOpsSubmissionAudioContent(submissionId: string): Promise<GalleryFeedAudioContentResult> {
+    const sub = await this.submissions.findOne({ where: { id: submissionId } });
+    if (!sub) {
+      throw new NotFoundException(`Submission ${submissionId} not found`);
+    }
+    const report = await this.reports.findReportById(sub.reportId);
+    if (!report || report.source !== ReportSource.AUDIO_RECORDING) {
+      throw new NotFoundException(`Playback not available for submission ${submissionId}`);
+    }
+    const upload = await this.resolveReportAudioUpload(sub.reportId);
+    if (!upload) {
+      throw new NotFoundException(`Playback not available for submission ${submissionId}`);
+    }
+    const stored = await this.storage.getObject(upload.storageKey);
+    return {
+      body: stored.body,
+      contentType: stored.contentType ?? upload.mimeType ?? 'application/octet-stream',
+    };
+  }
+
   private async resolveReportAudioUpload(
     reportId: string,
   ): Promise<{ mimeType: string; storageKey: string } | null> {
@@ -530,6 +554,7 @@ export class GalleryApplicationService {
     const openReportCount = await this.itemReports.count({
       where: { submissionId: s.id, resolvedAt: IsNull() },
     });
+    const audio = await this.resolveReportAudioUpload(s.reportId);
     return {
       ...this.toRow(s),
       report: {
@@ -541,6 +566,8 @@ export class GalleryApplicationService {
         status: report.status,
       },
       openReportCount,
+      playbackAvailable: audio != null,
+      audioContentType: audio?.mimeType,
     };
   }
 

@@ -187,6 +187,8 @@ export interface GalleryOpsSubmissionDetail extends GallerySubmissionRow {
     status: string;
   };
   openReportCount: number;
+  playbackAvailable: boolean;
+  audioContentType?: string;
 }
 
 export interface GalleryOpsQueueResponse {
