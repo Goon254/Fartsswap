@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 /**
- * `/fartmaximizer` — public meal-combination leaderboard (API-backed votes).
+ * `/fartmaximizer` — public meal-combination leaderboard (client-side votes).
  */
 export default function FartmaximizerPage() {
   return <FartmaximizerLabClient />;

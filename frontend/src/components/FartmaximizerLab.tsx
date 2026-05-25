@@ -5,7 +5,6 @@ import {
   type FC,
   type FormEvent,
   useCallback,
-  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -15,24 +14,18 @@ import { FartmaximizerVoteButton } from '@/components/fartmaximizer/Fartmaximize
 import { LethalAura } from '@/components/fartmaximizer/LethalAura';
 import { SectionLabel } from '@/components/SectionLabel';
 import {
-  castFartmaxVote,
-  fetchFartmaximizerLeaderboard,
-  submitFartmaxMeal,
-} from '@/lib/fartmaximizer-api';
-import {
+  INITIAL_MEAL_COMBINATIONS,
   type FartmaxVoteDirection,
   type FartmaximizerFilter,
   type FartmaximizerTier,
   type MealCombination,
   TIER_LABELS,
   mealMatchesFilter,
-  mealsFromApi,
   rankMap,
   sortMealsByVotes,
   tierForRank,
 } from '@/lib/fartmaximizer-lab';
 import { hapticRankShift, hapticSubmit, hapticTap } from '@/lib/fartmaximizer-haptics';
-import { FartsApiError, humanizeApiErrorMessage } from '@/lib/report-from-recording-api';
 import { fadeUp, staggerParent, transitionBrand } from '@/lib/motion';
 
 type RankFlash = 'up' | 'down';
@@ -92,32 +85,35 @@ interface FartmaximizerLabProps {
 
 export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false }) => {
   const reduceMotion = useReducedMotion();
-  const [meals, setMeals] = useState<MealCombination[]>([]);
+  const [meals, setMeals] = useState<MealCombination[]>(INITIAL_MEAL_COMBINATIONS);
   const [myVotes, setMyVotes] = useState<Record<string, FartmaxVoteDirection>>({});
   const [filter, setFilter] = useState<FartmaximizerFilter>('all');
   const [submitName, setSubmitName] = useState('');
   const [submitDescription, setSubmitDescription] = useState('');
   const [flashById, setFlashById] = useState<Record<string, RankFlash>>({});
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [enabled, setEnabled] = useState(true);
 
-  const applyLeaderboard = useCallback(
-    (
-      beforeRanks: Map<string, number>,
-      nextMeals: MealCombination[],
-      votes: Record<string, FartmaxVoteDirection>,
-    ) => {
-      const afterRanks = rankMap(nextMeals);
+  const ranked = useMemo(() => sortMealsByVotes(meals), [meals]);
+
+  const applyVote = useCallback((id: string, direction: FartmaxVoteDirection) => {
+    const delta = direction === 'up' ? 1 : -1;
+    setMyVotes((prev) => ({ ...prev, [id]: direction }));
+
+    setMeals((current) => {
+      const beforeRanks = rankMap(current);
+      const next = current.map((meal) =>
+        meal.id === id ? { ...meal, votes: Math.max(0, meal.votes + delta) } : meal,
+      );
+      const afterRanks = rankMap(next);
+
       const flashes: Record<string, RankFlash> = {};
-      for (const meal of nextMeals) {
+      for (const meal of next) {
         const before = beforeRanks.get(meal.id);
         const after = afterRanks.get(meal.id);
         if (before !== undefined && after !== undefined && before !== after) {
           flashes[meal.id] = after < before ? 'up' : 'down';
         }
       }
+
       if (Object.keys(flashes).length > 0) {
         hapticRankShift();
         setFlashById((prev) => ({ ...prev, ...flashes }));
@@ -129,87 +125,32 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
           });
         }, 1100);
       }
-      setMeals(nextMeals);
-      setMyVotes(votes);
-    },
-    [],
-  );
 
-  const loadLeaderboard = useCallback(async () => {
-    setError(null);
-    try {
-      const data = await fetchFartmaximizerLeaderboard(100);
-      setEnabled(data.enabled);
-      setMeals(mealsFromApi(data.meals));
-      setMyVotes(data.myVotes);
-    } catch (e) {
-      const message =
-        e instanceof FartsApiError
-          ? humanizeApiErrorMessage(e.message)
-          : e instanceof Error
-            ? e.message
-            : 'Could not load leaderboard';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+      return next;
+    });
   }, []);
 
-  useEffect(() => {
-    void loadLeaderboard();
-  }, [loadLeaderboard]);
-
-  const ranked = useMemo(() => sortMealsByVotes(meals), [meals]);
-
-  const applyVote = useCallback(
-    async (id: string, direction: FartmaxVoteDirection) => {
-      const beforeRanks = rankMap(meals);
-      setSyncing(true);
-      setError(null);
-      try {
-        const data = await castFartmaxVote(id, direction);
-        applyLeaderboard(beforeRanks, mealsFromApi(data.meals), data.myVotes);
-      } catch (e) {
-        const message =
-          e instanceof FartsApiError
-            ? humanizeApiErrorMessage(e.message)
-            : e instanceof Error
-              ? e.message
-              : 'Vote failed';
-        setError(message);
-      } finally {
-        setSyncing(false);
-      }
-    },
-    [applyLeaderboard, meals],
-  );
-
-  const onSubmit = async (event: FormEvent) => {
+  const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const name = submitName.trim();
     if (!name) return;
     hapticSubmit();
-    setSyncing(true);
-    setError(null);
-    try {
-      await submitFartmaxMeal({
+
+    const description =
+      submitDescription.trim() ||
+      'Community filing pending Bureau review. Assume maximum volatility.';
+
+    setMeals((current) => [
+      ...current,
+      {
+        id: `user-${Date.now()}`,
         name,
-        ...(submitDescription.trim() ? { description: submitDescription } : {}),
-      });
-      setSubmitName('');
-      setSubmitDescription('');
-      await loadLeaderboard();
-    } catch (e) {
-      const message =
-        e instanceof FartsApiError
-          ? humanizeApiErrorMessage(e.message)
-          : e instanceof Error
-            ? e.message
-            : 'Submission failed';
-      setError(message);
-    } finally {
-      setSyncing(false);
-    }
+        description,
+        votes: 0,
+      },
+    ]);
+    setSubmitName('');
+    setSubmitDescription('');
   };
 
   const podium = ranked.slice(0, 3);
@@ -274,34 +215,13 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
           </motion.div>
         </motion.header>
 
-        {error ? (
-          <p
-            role="alert"
-            className="mt-6 rounded-md border border-[color-mix(in_oklab,var(--color-alert-red)_40%,transparent)] bg-[color-mix(in_oklab,var(--color-alert-red)_8%,var(--bg-panel))] px-4 py-3 font-mono text-[0.65rem] uppercase tracking-wide-2 text-[var(--color-alert-red)]"
-          >
-            {error}
-          </p>
-        ) : null}
-
-        {loading ? (
-          <p className="mt-10 font-mono text-[0.65rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
-            Synchronizing meal matrix…
-          </p>
-        ) : null}
-
-        {!loading && !enabled ? (
-          <p className="mt-10 rounded-md border border-dashed border-[var(--border-subtle)] bg-[var(--bg-panel)] px-4 py-8 text-center font-mono text-[0.65rem] uppercase tracking-wide-3 text-[var(--text-muted)]">
-            Fartmaximizer Lab is offline. Bureau maintenance in progress.
-          </p>
-        ) : null}
-
         <motion.div
           variants={fadeUp}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, amount: 0.15 }}
           transition={transitionBrand}
-          className={`relative mt-10 flex flex-wrap items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-panel-strong)] p-2 ${loading || !enabled ? 'pointer-events-none opacity-50' : ''}`}
+          className="relative mt-10 flex flex-wrap items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-panel-strong)] p-2"
           role="tablist"
           aria-label="Filter rankings by threat tier"
         >
@@ -340,7 +260,7 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
           })}
         </motion.div>
 
-        {!loading && enabled && showPodium ? (
+        {showPodium ? (
           <motion.div
             variants={staggerParent}
             initial="hidden"
@@ -362,30 +282,27 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
                 rank={2}
                 placement="left"
                 flash={flashById[second.id]}
-              onUpvote={() => void applyVote(second.id, 'up')}
-              onDownvote={() => void applyVote(second.id, 'down')}
-              myVote={myVotes[second.id]}
-              voteDisabled={syncing}
+                onUpvote={() => void applyVote(second.id, 'up')}
+                onDownvote={() => void applyVote(second.id, 'down')}
+                myVote={myVotes[second.id]}
               />
               <PodiumSlot
                 meal={first}
                 rank={1}
                 placement="center"
                 flash={flashById[first.id]}
-              onUpvote={() => void applyVote(first.id, 'up')}
-              onDownvote={() => void applyVote(first.id, 'down')}
-              myVote={myVotes[first.id]}
-              voteDisabled={syncing}
+                onUpvote={() => void applyVote(first.id, 'up')}
+                onDownvote={() => void applyVote(first.id, 'down')}
+                myVote={myVotes[first.id]}
               />
               <PodiumSlot
                 meal={third}
                 rank={3}
                 placement="right"
                 flash={flashById[third.id]}
-              onUpvote={() => void applyVote(third.id, 'up')}
-              onDownvote={() => void applyVote(third.id, 'down')}
-              myVote={myVotes[third.id]}
-              voteDisabled={syncing}
+                onUpvote={() => void applyVote(third.id, 'up')}
+                onDownvote={() => void applyVote(third.id, 'down')}
+                myVote={myVotes[third.id]}
               />
             </div>
           </motion.div>
@@ -395,7 +312,6 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
           </p>
         )}
 
-        {!loading && enabled ? (
         <motion.div
           variants={fadeUp}
           initial="hidden"
@@ -434,16 +350,13 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
                     onUpvote={() => void applyVote(meal.id, 'up')}
                     onDownvote={() => void applyVote(meal.id, 'down')}
                     myVote={myVotes[meal.id]}
-                    voteDisabled={syncing}
                   />
                 ))
               )}
             </AnimatePresence>
           </ol>
         </motion.div>
-        ) : null}
 
-        {!loading && enabled ? (
         <motion.form
           onSubmit={onSubmit}
           variants={fadeUp}
@@ -487,7 +400,7 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
           </div>
           <motion.button
             type="submit"
-            disabled={!submitName.trim() || syncing || loading || !enabled}
+            disabled={!submitName.trim()}
             whileHover={reduceMotion ? undefined : { scale: 1.02, y: -1 }}
             whileTap={reduceMotion ? undefined : { scale: 0.96, y: 1 }}
             className="mt-4 rounded-sm bg-[var(--accent-brass)] px-6 py-3 font-mono text-[0.65rem] uppercase tracking-wide-2 text-[var(--bg-base)] shadow-[0_4px_0_color-mix(in_oklab,black_35%,transparent)] transition-opacity disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none"
@@ -495,7 +408,6 @@ export const FartmaximizerLab: FC<FartmaximizerLabProps> = ({ standalone = false
             File with the Bureau
           </motion.button>
         </motion.form>
-        ) : null}
       </div>
     </section>
   );
@@ -509,7 +421,6 @@ interface PodiumSlotProps {
   onUpvote: () => void;
   onDownvote: () => void;
   myVote?: FartmaxVoteDirection;
-  voteDisabled?: boolean;
 }
 
 const PodiumSlot: FC<PodiumSlotProps> = ({
@@ -520,7 +431,6 @@ const PodiumSlot: FC<PodiumSlotProps> = ({
   onUpvote,
   onDownvote,
   myVote,
-  voteDisabled,
 }) => {
   const reduceMotion = useReducedMotion();
   const tier = tierForRank(rank);
@@ -615,7 +525,6 @@ const PodiumSlot: FC<PodiumSlotProps> = ({
           compact
           lethalContext={lethal}
           myVote={myVote}
-          disabled={voteDisabled}
         />
       </div>
     </motion.div>
@@ -650,7 +559,6 @@ interface RankListRowProps {
   onUpvote: () => void;
   onDownvote: () => void;
   myVote?: FartmaxVoteDirection;
-  voteDisabled?: boolean;
 }
 
 const RankListRow: FC<RankListRowProps> = ({
@@ -661,7 +569,6 @@ const RankListRow: FC<RankListRowProps> = ({
   onUpvote,
   onDownvote,
   myVote,
-  voteDisabled,
 }) => {
   const tier = tierForRank(rank);
   const style = TIER_STYLES[tier];
@@ -725,7 +632,6 @@ const RankListRow: FC<RankListRowProps> = ({
         onUpvote={onUpvote}
         onDownvote={onDownvote}
         myVote={myVote}
-        disabled={voteDisabled}
       />
     </motion.li>
   );
@@ -737,7 +643,6 @@ interface VoteControlsProps {
   compact?: boolean;
   lethalContext?: boolean;
   myVote?: FartmaxVoteDirection;
-  disabled?: boolean;
 }
 
 const VoteControls: FC<VoteControlsProps> = ({
@@ -746,7 +651,6 @@ const VoteControls: FC<VoteControlsProps> = ({
   compact,
   lethalContext,
   myVote,
-  disabled,
 }) => (
   <div
     className={`flex gap-1.5 ${compact ? 'flex-col' : 'flex-row sm:items-center'}`}
@@ -759,14 +663,12 @@ const VoteControls: FC<VoteControlsProps> = ({
       lethalContext={lethalContext}
       compact={compact}
       active={myVote === 'up'}
-      disabled={disabled}
     />
     <FartmaximizerVoteButton
       kind="down"
       onVote={onDownvote}
       compact={compact}
       active={myVote === 'down'}
-      disabled={disabled}
     />
   </div>
 );

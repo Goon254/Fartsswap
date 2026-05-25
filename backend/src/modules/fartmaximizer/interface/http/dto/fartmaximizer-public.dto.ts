@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import type {
   FartmaxMealRow,
@@ -85,6 +86,7 @@ export class FartmaximizerLeaderboardDto {
 export class FartmaximizerLeaderboardQueryDto {
   @ApiPropertyOptional({ default: 50 })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
