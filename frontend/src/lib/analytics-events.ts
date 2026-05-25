@@ -25,6 +25,8 @@ export interface EventMap {
   // — Landing —
   landing_view: Record<string, never>;
   landing_cta_click: { cta: 'analyze' | 'fake' };
+  landing_fartmaximizer_click: { location: 'promo_primary' | 'hero_secondary' };
+  fartmaximizer_view: Record<string, never>;
 
   // — Analyze flow —
   analyze_view: {

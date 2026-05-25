@@ -138,6 +138,12 @@ export const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  /** When false, fartmaximizer leaderboard/vote/submit routes return disabled payloads or 403. */
+  FARTMAXIMIZER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+
   /** When true, checkout-complete creates POD order rows + mock provider submit. */
   POD_FULFILLMENT_ENABLED: z
     .enum(['true', 'false'])

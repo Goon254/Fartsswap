@@ -23,6 +23,7 @@ import { RitualsModule } from './modules/rituals/rituals.module';
 import { ArtifactCommerceModule } from './modules/artifact-commerce/artifact-commerce.module';
 import { GalleryModule } from './modules/gallery/gallery.module';
 import { PlansModule } from './modules/plans/plans.module';
+import { FartmaximizerModule } from './modules/fartmaximizer/fartmaximizer.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { PlansModule } from './modules/plans/plans.module';
     ArtifactCommerceModule,
     GalleryModule,
     PlansModule,
+    FartmaximizerModule,
   ],
 })
 export class AppModule {}

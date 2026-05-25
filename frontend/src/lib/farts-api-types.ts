@@ -234,6 +234,24 @@ export interface GalleryReportFiledResponse {
   ok: true;
 }
 
+export type FartmaxVoteDirection = 'up' | 'down';
+
+export interface FartmaxMealDto {
+  id: string;
+  name: string;
+  description: string;
+  votes: number;
+  upvoteCount: number;
+  downvoteCount: number;
+  createdAt: string;
+}
+
+export interface FartmaximizerLeaderboardResponse {
+  enabled: boolean;
+  meals: FartmaxMealDto[];
+  myVotes: Record<string, FartmaxVoteDirection>;
+}
+
 export interface ApiErrorBody {
   error?: string;
   message?: string | string[];

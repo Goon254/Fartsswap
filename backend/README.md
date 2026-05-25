@@ -224,6 +224,20 @@ Lifecycle: `submitted_for_review` → ops `approve` → ops `publish` → option
 
 Ops routes: `/api/v1/ops/gallery/*` with `x-ops-key` (`OPS_CONSOLE_SECRET`). Integrated frontend: `/moderation-lab`.
 
+## Fartmaximizer™ Lab (meal leaderboard)
+
+| Env | Default | Purpose |
+| --- | --- | --- |
+| `FARTMAXIMIZER_ENABLED` | `true` | When false, leaderboard routes return disabled payloads or 403 on writes |
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| `GET` | `/api/v1/fartmaximizer/leaderboard` | Ranked meals + `myVotes` for the anonymous session cookie |
+| `POST` | `/api/v1/fartmaximizer/meals` | Submit a new combination (session required) |
+| `POST` | `/api/v1/fartmaximizer/meals/:mealId/vote` | Body `{ "direction": "up" \| "down" }` — one vote per session per meal |
+
+Migration `1738200000000-FartmaximizerLeaderboard` seeds 20 starter combinations. Frontend: `/fartmaximizer` via BFF `/api/fartmaximizer/*`.
+
 ## Local artifact storage
 
 Generated files are stored under the configured local path (default: `backend/.storage/`):

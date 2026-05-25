@@ -216,6 +216,12 @@ export class AppConfigService {
     };
   }
 
+  get fartmaximizer(): { enabled: boolean } {
+    return {
+      enabled: this.config.get('FARTMAXIMIZER_ENABLED', { infer: true }),
+    };
+  }
+
   get podFulfillment(): { enabled: boolean; providerMode: 'mock' | 'disabled'; webhookSecret?: string } {
     return {
       enabled: this.config.get('POD_FULFILLMENT_ENABLED', { infer: true }),

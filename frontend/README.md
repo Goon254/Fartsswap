@@ -89,6 +89,9 @@ Same-origin App Router handlers forward requests to `/api/v1/...` on the Nest AP
 | `POST /api/gallery/reports` | `POST /api/v1/gallery/reports` | `fileGalleryFeedReport` — anonymous session, one report per item |
 | `GET /api/gallery/submissions/by-report/[reportId]` | same upstream | `fetchGallerySubmissionForReport` |
 | `POST /api/ops/gallery/*` | `POST /api/v1/ops/gallery/*` | `/moderation-lab` — requires `x-ops-key` / `OPS_CONSOLE_SECRET` |
+| `GET /api/fartmaximizer/leaderboard` | `GET /api/v1/fartmaximizer/leaderboard` | `fetchFartmaximizerLeaderboard` — `src/lib/fartmaximizer-api.ts` |
+| `POST /api/fartmaximizer/meals` | `POST /api/v1/fartmaximizer/meals` | `submitFartmaxMeal` |
+| `POST /api/fartmaximizer/meals/[mealId]/vote` | `POST /api/v1/fartmaximizer/meals/:id/vote` | `castFartmaxVote` |
 
 Types shared with the API live in `src/lib/farts-api-types.ts`.
 

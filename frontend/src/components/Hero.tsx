@@ -85,6 +85,15 @@ export const Hero: FC = () => (
           >
             Try demo (no mic)
           </Button>
+          <Button
+            variant="secondary"
+            href="/fartmaximizer"
+            onClick={() => track('landing_fartmaximizer_click', { location: 'hero_secondary' })}
+            trailing={<Arrow />}
+            className="ring-[var(--border-brass)] hover:ring-[var(--accent-brass)]"
+          >
+            Fartmaximizer Lab
+          </Button>
         </motion.div>
 
         <motion.p

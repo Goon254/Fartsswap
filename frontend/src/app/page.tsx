@@ -1,6 +1,6 @@
 import { AnalyticsPageView } from '@/components/analytics/AnalyticsPageView';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
-import { FartmaximizerLab } from '@/components/FartmaximizerLab';
+import { FartmaximizerPromo } from '@/components/FartmaximizerPromo';
 import { FeatureGrid } from '@/components/FeatureGrid';
 import { FooterLoreStrip } from '@/components/FooterLoreStrip';
 import { Hero } from '@/components/Hero';
@@ -43,7 +43,7 @@ function LiveLanding() {
 
         <main className="flex-1">
           <Hero />
-          <FartmaximizerLab />
+          <FartmaximizerPromo />
           <FeatureGrid />
         </main>
 

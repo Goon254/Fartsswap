@@ -216,6 +216,145 @@ body {
   text-shadow: 0 0 32px rgba(45, 191, 175, 0.18);
 }
 
+/* -----------------------------------------------------------------------------
+ * Fartmaximizer™ Lab — lethal podium, embers, press feedback
+ * ---------------------------------------------------------------------------*/
+
+@keyframes fartmax-lethal-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes fartmax-fire-flicker {
+  0%,
+  100% {
+    opacity: 0.75;
+    filter: blur(12px) hue-rotate(0deg);
+  }
+  33% {
+    opacity: 1;
+    filter: blur(14px) hue-rotate(-6deg);
+  }
+  66% {
+    opacity: 0.85;
+    filter: blur(10px) hue-rotate(8deg);
+  }
+}
+
+@keyframes fartmax-ember-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.4);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-72px) scale(0.15);
+  }
+}
+
+@keyframes fartmax-podium-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes fartmax-hazard-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes fartmax-vote-pop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.fartmax-lethal-glow {
+  background: radial-gradient(
+    ellipse 90% 70% at 50% 100%,
+    color-mix(in oklab, var(--color-alert-red) 45%, transparent),
+    transparent 68%
+  );
+  animation: fartmax-lethal-breathe 2.8s ease-in-out infinite;
+}
+
+.fartmax-fire-ring {
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-alert-red) 55%, transparent),
+    0 0 28px 4px color-mix(in oklab, var(--color-alert-red) 35%, transparent),
+    0 0 64px 12px color-mix(in oklab, var(--color-alert-amber) 22%, transparent),
+    inset 0 -12px 32px color-mix(in oklab, var(--color-alert-red) 18%, transparent);
+  animation: fartmax-fire-flicker 1.6s ease-in-out infinite;
+}
+
+.fartmax-ember {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-alert-amber);
+  box-shadow: 0 0 10px var(--color-alert-red);
+  animation: fartmax-ember-rise 2.4s ease-out infinite;
+}
+
+.fartmax-podium-float {
+  animation: fartmax-podium-float 4.5s ease-in-out infinite;
+}
+
+.fartmax-hazard-scan::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-alert-red) 18%, transparent) 45%,
+    transparent 70%
+  );
+  animation: fartmax-hazard-scan 5s linear infinite;
+}
+
+.fartmax-vote-pop {
+  animation: fartmax-vote-pop 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.fartmax-card-alive {
+  transition:
+    transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 0.35s cubic-bezier(0.22, 0.61, 0.36, 1),
+    border-color 0.35s ease;
+}
+
+.fartmax-card-alive:hover {
+  transform: translateY(-3px);
+}
+
 /* Removes the noisy default focus ring while keeping a brand-aligned outline
  * that's actually visible on dark surfaces. */
 :focus-visible {
