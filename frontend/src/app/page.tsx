@@ -1,11 +1,11 @@
 import { AnalyticsPageView } from '@/components/analytics/AnalyticsPageView';
 import { BackgroundLayers } from '@/components/BackgroundLayers';
+import { FartmaximizerLab } from '@/components/FartmaximizerLab';
 import { FeatureGrid } from '@/components/FeatureGrid';
 import { FooterLoreStrip } from '@/components/FooterLoreStrip';
 import { Hero } from '@/components/Hero';
 import { LaunchShellClient } from '@/components/LaunchShellClient';
 import { Navbar } from '@/components/Navbar';
-import { SectionLabel } from '@/components/SectionLabel';
 import { LAUNCH_MODE } from '@/lib/launch-mode';
 
 /**
@@ -43,11 +43,7 @@ function LiveLanding() {
 
         <main className="flex-1">
           <Hero />
-
-          <div className="mx-auto w-full max-w-7xl px-6 lg:px-10">
-            <SectionLabel index="II">FIELD PROCEDURE</SectionLabel>
-          </div>
-
+          <FartmaximizerLab />
           <FeatureGrid />
         </main>
 

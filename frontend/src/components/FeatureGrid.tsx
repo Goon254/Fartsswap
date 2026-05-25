@@ -26,7 +26,7 @@ export const FeatureGrid: FC = () => (
           transition={transitionBrand}
           className="flex flex-col gap-5"
         >
-          <SectionLabel index="II">OPERATIONS MANUAL</SectionLabel>
+          <SectionLabel index="III">OPERATIONS MANUAL</SectionLabel>
           <h2 className="font-display text-3xl leading-tight tracking-tight text-[var(--text-strong)] sm:text-4xl">
             A small lab. A serious refusal to be serious.
           </h2>
